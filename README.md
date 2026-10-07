@@ -13,10 +13,11 @@ First-person zombie survival with building. Stand your ground through escalating
 | SHIFT | Sprint |
 | MOUSE | Look |
 | CLICK | Shoot |
+| RMB | Sniper scope |
 | R | Reload |
-| 1-4 | Weapons (Rifle, Shotgun, SMG, Sniper) |
-| 5 | Hammer (upgrade structures) |
-| 6 | Build mode |
+| 1-6 | Weapons (Rifle, Shotgun, SMG, Sniper, Pistol, Minigun) |
+| 7 | Hammer (upgrade structures) |
+| 8 | Build mode |
 | Q | Inventory |
 | C | Crafting |
 | T | Shop |
