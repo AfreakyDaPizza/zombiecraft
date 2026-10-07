@@ -27,7 +27,7 @@ First-person zombie survival with building. Stand your ground through escalating
 
 ## Maps
 
-- **Town** — buildings with rooftops, ladders, trees, streets
+- **Town** — buildings, trees, streets
 - **Arena** — open ring with central platforms
 - **Ruins** — scattered walls and ruined towers
 

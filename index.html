@@ -6,7 +6,7 @@
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   html,body { width:100%; height:100%; overflow:hidden; background:#000; font-family:'Segoe UI',monospace; }
-  canvas { display:block; }
+  canvas { display:block; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#000; box-shadow:0 0 0 3px #2a2a3a, 0 0 80px rgba(0,0,0,0.9); }
 
   #crosshair { position:fixed; top:50%; left:50%; width:22px; height:22px; transform:translate(-50%,-50%); pointer-events:none; z-index:50; }
   #crosshair .c { position:absolute; background:#00ff88; box-shadow:0 0 6px #00ff88; }
@@ -196,7 +196,7 @@
   <button class="panel-close" id="inv-close">Close (Q)</button>
 </div>
 
-<div id="info">WASD move · SPACE jump · CLICK shoot · B build · 5 hammer</div>
+<div id="info">WASD move · SPACE jump · CLICK shoot · RMB scope (sniper) · B build · 5 hammer</div>
 
 <script type="importmap">
 {
@@ -275,6 +275,7 @@ const state = {
   collidables:[],
   ladders:[],
   hammerMode:false,
+  zooming:false,
   hitMarkerTimer:0,
   selectedMap:'town',
   mapRoot:null,
@@ -296,7 +297,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 0.88;
 document.body.appendChild(renderer.domElement);
 
 // ============ SCENE ============
@@ -309,10 +310,25 @@ camera.position.set(0, 1.7, 10);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
 
+// Windowed 16:9 letterbox (not fullscreen) so it behaves like a game window
+const GAME_ASPECT = 16/9;
+function fitGameWindow(){
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let w = vw, h = Math.round(vw / GAME_ASPECT);
+  if (h > vh){ h = vh; w = Math.round(vh * GAME_ASPECT); }
+  renderer.setSize(w, h, false);
+  renderer.domElement.style.width = w + 'px';
+  renderer.domElement.style.height = h + 'px';
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+fitGameWindow();
+window.addEventListener('resize', fitGameWindow);
+
 // LIGHTS
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-scene.add(new THREE.HemisphereLight(0x87ceeb, 0x4a7a3a, 0.6));
-const sun = new THREE.DirectionalLight(0xffffee, 1.1);
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+scene.add(new THREE.HemisphereLight(0x87ceeb, 0x4a7a3a, 0.45));
+const sun = new THREE.DirectionalLight(0xffffee, 0.95);
 sun.position.set(30, 50, 20);
 sun.castShadow = true;
 sun.shadow.mapSize.width = 1024;
@@ -471,7 +487,7 @@ function updateWeaponRig(delta){
 const gunMat = new THREE.MeshStandardMaterial({ color:0x2a2a2a, metalness:0.85, roughness:0.25 });
 const gunDark = new THREE.MeshStandardMaterial({ color:0x0a0a0a, metalness:0.9, roughness:0.15 });
 const gunAccent = new THREE.MeshStandardMaterial({ color:0x444455, metalness:0.95, roughness:0.2 });
-const gunGold = new THREE.MeshStandardMaterial({ color:0xd4af37, metalness:0.95, roughness:0.2 });
+const gunGold = new THREE.MeshStandardMaterial({ color:0xd4af37, metalness:0.55, roughness:0.45 });
 const gunRed = new THREE.MeshStandardMaterial({ color:0xcc2222, metalness:0.8, roughness:0.3, emissive:0x330000 });
 
 // RIFLE
@@ -496,10 +512,10 @@ const rifle = new THREE.Group();
   const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.45,12), gunDark);
   scope.rotation.x = Math.PI/2; scope.position.set(0.28,-0.06,-0.6); rifle.add(scope);
   const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.02,12),
-    new THREE.MeshStandardMaterial({ color:0x00aaff, emissive:0x0088ff, emissiveIntensity:1.5 }));
+    new THREE.MeshStandardMaterial({ color:0x00aaff, emissive:0x0088ff, emissiveIntensity:0.5 }));
   lens.rotation.x = Math.PI/2; lens.position.set(0.28,-0.06,-0.83); rifle.add(lens);
   const lensBack = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.02,12),
-    new THREE.MeshStandardMaterial({ color:0x00aaff, emissive:0x0088ff, emissiveIntensity:1.5 }));
+    new THREE.MeshStandardMaterial({ color:0x00aaff, emissive:0x0088ff, emissiveIntensity:0.5 }));
   lensBack.rotation.x = Math.PI/2; lensBack.position.set(0.28,-0.06,-0.37); rifle.add(lensBack);
   const mag = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.3,0.12), gunDark);
   mag.position.set(0.28,-0.45,-0.5); mag.rotation.x = 0.15; rifle.add(mag);
@@ -608,10 +624,10 @@ const sniper = new THREE.Group();
   const scopeBody = new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.075,0.7,14), gunDark);
   scopeBody.rotation.x = Math.PI/2; scopeBody.position.set(0.28,-0.05,-0.75); sniper.add(scopeBody);
   const lensF = new THREE.Mesh(new THREE.CylinderGeometry(0.072,0.072,0.02,14),
-    new THREE.MeshStandardMaterial({ color:0x00aaff, emissive:0x0088ff, emissiveIntensity:1.8 }));
+    new THREE.MeshStandardMaterial({ color:0x00aaff, emissive:0x0088ff, emissiveIntensity:0.5 }));
   lensF.rotation.x = Math.PI/2; lensF.position.set(0.28,-0.05,-1.11); sniper.add(lensF);
   const lensR = new THREE.Mesh(new THREE.CylinderGeometry(0.072,0.072,0.02,14),
-    new THREE.MeshStandardMaterial({ color:0x00aaff, emissive:0x0088ff, emissiveIntensity:1.8 }));
+    new THREE.MeshStandardMaterial({ color:0x00aaff, emissive:0x0088ff, emissiveIntensity:0.5 }));
   lensR.rotation.x = Math.PI/2; lensR.position.set(0.28,-0.05,-0.39); sniper.add(lensR);
   const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.06,8), gunAccent);
   knob.position.set(0.28,0.02,-0.75); sniper.add(knob);
@@ -649,6 +665,10 @@ const hammer = new THREE.Group();
   face.rotation.z = Math.PI/2; face.position.set(0.3,-0.28,-0.68); hammer.add(face);
   const band = new THREE.Mesh(new THREE.TorusGeometry(0.055,0.01,6,12), gunGold);
   band.rotation.y = Math.PI/2; band.position.set(0.3,-0.28,-0.62); hammer.add(band);
+  // hand gripping the handle so the hammer doesn't float
+  const hHand = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.09,0.1),
+    new THREE.MeshStandardMaterial({ color:0x2a2a2a, roughness:0.85 }));
+  hHand.position.set(0.29,-0.33,-0.42); hHand.rotation.set(0.4, 0, 0); hammer.add(hHand);
 }
 hammer.visible = false;
 weaponRig.add(hammer);
@@ -658,68 +678,62 @@ const armSkin = new THREE.MeshStandardMaterial({ color:0xc8956c, roughness:0.75 
 const armSleeve = new THREE.MeshStandardMaterial({ color:0x3d4a3a, roughness:0.9 });
 const gloveMat = new THREE.MeshStandardMaterial({ color:0x2a2a2a, roughness:0.85 });
 
-function buildArm(side){
-  // side: 1 = right, - = left
+function limbSegment(group, mat, from, to, radius){
+  const d = new THREE.Vector3().subVectors(to, from);
+  if (d.length() < 0.001) return;
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, d.length(), 8), mat);
+  mesh.position.copy(new THREE.Vector3().addVectors(from, to).multiplyScalar(0.5));
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), d.clone().normalize());
+  mesh.castShadow = false;
+  group.add(mesh);
+}
+
+// Simple connected arm reaching from off-screen down to the gun grip.
+// side: 1 = right hand, -1 = left hand.
+function buildArm(side, handPos, elbowPos){
   const arm = new THREE.Group();
-  const sx = side;
 
-  // Upper arm (shoulder off-screen, angled down toward the weapon)
-  const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.048,0.34,10), armSleeve);
-  upper.position.set(0.16*sx, -0.52, 0.16);
-  upper.rotation.set(0.9, 0, -0.55*sx);
-  arm.add(upper);
+  // Shoulder sits just outside the bottom of the view
+  const shoulder = new THREE.Vector3(0.26, -0.72, 0.18);
+  const elb = elbowPos.clone();
+  const hnd = handPos.clone();
 
-  // Elbow
-  const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), armSleeve);
-  elbow.position.set(0.14*sx, -0.44, 0.0);
-  arm.add(elbow);
+  // Get 2% closer to the grip so nothing pokes through the gun
+  const pull = 0.98;
+  hnd.multiplyScalar(pull);
 
-  // Forearm (sleeve rolled — skin shows near wrist)
-  const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.044,0.038,0.3,10), armSkin);
-  fore.position.set(0.1*sx, -0.38, -0.16);
-  fore.rotation.set(1.35, 0, -0.35*sx);
-  arm.add(fore);
+  // Upper arm (sleeve) from shoulder to elbow
+  limbSegment(arm, armSleeve, shoulder, elb, 0.052);
+  // Rolled sleeve cuff at the elbow
+  const dir = new THREE.Vector3().subVectors(hnd, elb).normalize();
+  limbSegment(arm, armSleeve, elb, elb.clone().add(dir.clone().multiplyScalar(0.07)), 0.056);
+  // Forearm (skin) from elbow to the gloved hand
+  limbSegment(arm, armSkin, elb, hnd, 0.04);
 
-  // Rolled sleeve cuff
-  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.07,10), armSleeve);
-  cuff.position.set(0.12*sx, -0.41, -0.08);
-  cuff.rotation.set(1.35, 0, -0.35*sx);
-  arm.add(cuff);
+  // Gloved hand wrapped on the grip
+  const glove = new THREE.Mesh(new THREE.BoxGeometry(0.085,0.1,0.11), gloveMat);
+  glove.position.copy(hnd);
+  glove.rotation.set(0.35, 0, 0.1 * side);
+  glove.castShadow = false;
+  arm.add(glove);
 
-  // Wrist
-  const wrist = new THREE.Mesh(new THREE.SphereGeometry(0.038,8,8), armSkin);
-  wrist.position.set(0.07*sx, -0.33, -0.29);
-  arm.add(wrist);
-
-  // Palm gripping
-  const palm = new THREE.Mesh(new THREE.BoxGeometry(0.075,0.1,0.11), gloveMat);
-  palm.position.set(0.06*sx, -0.32, -0.35);
-  palm.rotation.set(0.3, 0, -0.2*sx);
-  arm.add(palm);
-
-  // Fingers wrapped around grip
-  for (let i=0;i<4;i++){
-    const f = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.024,0.06), gloveMat);
-    f.position.set(0.03*sx, -0.355+i*0.026, -0.4);
-    f.rotation.x = 0.4;
-    arm.add(f);
+  // Knuckle bumps so the hand reads at a glance
+  for (let i=0;i<3;i++){
+    const kn = new THREE.Mesh(new THREE.BoxGeometry(0.022,0.032,0.12), gloveMat);
+    kn.position.copy(hnd).add(new THREE.Vector3(0, 0.042 - i*0.028, 0.02));
+    kn.castShadow = false;
+    arm.add(kn);
   }
-  // Thumb
-  const thumb = new THREE.Mesh(new THREE.BoxGeometry(0.026,0.06,0.05), gloveMat);
-  thumb.position.set(0.09*sx, -0.29, -0.39);
-  thumb.rotation.set(0.5, 0, -0.7*sx);
-  arm.add(thumb);
 
   return arm;
 }
 
-const rightArm = buildArm(1);
-const leftArm = buildArm(-1);
-// Left hand reaches further up the foregrip/handguard
-leftArm.position.set(-0.1, -0.06, -0.34);
-leftArm.rotation.set(-0.15, 0.15, 0);
-weaponRig.add(leftArm);
+// Grip points line up with the viewmodel on screen:
+// right hand on the pistol grip, left hand forward on the handguard.
+const rightArm = buildArm(1, new THREE.Vector3(0.28, -0.33, -0.4), new THREE.Vector3(0.3, -0.46, -0.12));
+const leftArm = buildArm(-1, new THREE.Vector3(0.19, -0.25, -0.9), new THREE.Vector3(0.06, -0.4, -0.5));
 weaponRig.add(rightArm);
+weaponRig.add(leftArm);
 
 const fpArms = [rightArm, leftArm];
 
@@ -849,10 +863,13 @@ function spawnBloodDecal(x, z){
 const ZOMBIE_TYPES = {
   walker: { hp:3,   speed:[0.022,0.042], scale:[0.98,1.05], damage:8,  score:12, attackCd:900,  shirt:0x3a5a7a },
   runner: { hp:2,   speed:[0.06,0.08],   scale:[0.9,0.95],  damage:5,  score:16, attackCd:550,  shirt:0x4a4a4a },
-  brute:  { hp:9,   speed:[0.014,0.022], scale:[1.35,1.45], damage:18, score:35, attackCd:1200, shirt:0x2b2b3a }
+  brute:  { hp:9,   speed:[0.014,0.022], scale:[1.35,1.45], damage:18, score:35, attackCd:1200, shirt:0x2b2b3a },
+  crawler:{ hp:1,   speed:[0.09,0.13],   scale:[0.62,0.7],  damage:4,  score:16, attackCd:450,  shirt:0x553322 },
+  exploder:{hp:2,   speed:[0.06,0.085],  scale:[1.0,1.1],   damage:0,  score:22, attackCd:9e9,  shirt:0x4a3a2a },
+  tank:   { hp:16,  speed:[0.012,0.018], scale:[1.55,1.7],  damage:28, score:70, attackCd:1400, shirt:0x1c1c28 }
 };
 
-function createZombie(x, z, y=0, rooftop=false, type='walker'){
+function createZombie(x, z, y=0, type='walker'){
   const arch = ZOMBIE_TYPES[type] || ZOMBIE_TYPES.walker;
   const g = new THREE.Group();
 
@@ -899,6 +916,14 @@ function createZombie(x, z, y=0, rooftop=false, type='walker'){
   // Shoulders pad
   const shoulder = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.18,0.38), shirtMat);
   shoulder.position.set(0, 0.72, 0); shoulder.castShadow = true; torso.add(shoulder);
+
+  // Exploder: glowing bloated belly
+  if (type === 'exploder'){
+    const bellyMat = new THREE.MeshStandardMaterial({ color:0x7a4a3a, emissive:0xff4400, emissiveIntensity:1.0, roughness:0.5 });
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(0.27, 12, 10), bellyMat);
+    belly.position.set(0, 0.18, 0.24); belly.scale.set(1,0.92,0.92); belly.castShadow = true; torso.add(belly);
+    flashMats.push(bellyMat);
+  }
 
   // ---- Head (pivoted so it can sway/chatter) ----
   const head = new THREE.Group();
@@ -987,10 +1012,7 @@ function createZombie(x, z, y=0, rooftop=false, type='walker'){
     leftKnee:legPivots[0].knee, rightKnee:legPivots[1].knee,
     head, jaw,
     flash:0, flashMats,
-    onRooftop:rooftop, rooftopY:y,
-    spawnBaseY:y, spawnRise:0,
-    spawnTime:performance.now(),
-    isFalling:false
+    spawnBaseY:y, spawnRise:0
   };
   scene.add(g);
   return g;
@@ -998,6 +1020,21 @@ function createZombie(x, z, y=0, rooftop=false, type='walker'){
 
 function zombieHitFlash(z){
   z.userData.flash = 0.2;
+}
+
+function explodeZombie(z){
+  const p = z.position.clone();
+  spawnBlood(p.add(new THREE.Vector3(0,1,0)), 60, 1, false);
+  spawnBloodDecal(p.x, p.z);
+  // flash + shake scale with proximity
+  const d = camera.position.distanceTo(p);
+  const fall = Math.max(0, 1 - d / 12);
+  const flash = new THREE.PointLight(0xffbb44, 14 * fall, 20);
+  flash.position.copy(p); scene.add(flash);
+  setTimeout(() => scene.remove(flash), 120);
+  if (fall > 0.2 && !state.gameOver){
+    damagePlayer(Math.round(22 * fall));
+  }
 }
 
 function updateZombieAnim(z, delta){
@@ -1349,13 +1386,8 @@ function buildEnhancedBuilding(root, x, z, w, dh, h, style='brick'){
   // Front wall (split for door)
   state.collidables.push({ isStatic:true, getBounds:() => ({ minX:bx1, maxX:x-doorW/2, minZ:bz2-0.2, maxZ:bz2+0.2, minY:0, maxY:wallH }) });
   state.collidables.push({ isStatic:true, getBounds:() => ({ minX:x+doorW/2, maxX:bx2, minZ:bz2-0.2, maxZ:bz2+0.2, minY:0, maxY:wallH }) });
-  // Roof — solid walkable
-  state.collidables.push({
-    isStatic:true, isRoof:true,
-    getBounds:() => ({ minX:bx1-0.3, maxX:bx2+0.3, minZ:bz1-0.3, maxZ:bz2+0.3, minY:wallH, maxY:wallH+0.35 })
-  });
-  
-  return { x, z, w, dh, topY:wallH + 0.35 };
+
+  return null;
 }
 
 function buildTownMap(){
@@ -1387,19 +1419,11 @@ function buildTownMap(){
     [-30, 0, 11, 7, 4, 'concrete'],
     [30, 0, 11, 7, 4, 'wood'],
   ];
-  const rooftopZones = [];
   buildings.forEach(([x,z,w,dh,h,style]) => {
-    const info = buildEnhancedBuilding(root, x, z, w, dh, h, style);
-    rooftopZones.push(info);
+    buildEnhancedBuilding(root, x, z, w, dh, h, style);
   });
-  state.rooftopZones = rooftopZones;
-  
-  // LADDERS on the outside of buildings for climbing
-  createLadder(-14 + 5, -14 - 5, 5);
-  createLadder(14 - 5, -14 - 5, 5.5);
-  createLadder(-14 + 5, 14 + 5, 4.5);
-  createLadder(14 - 5, 14 + 5, 6);
-  
+  state.rooftopZones = [];
+
   // Trees — layered trunk + stacked foliage cones
   function makeTree(tx, tz, pine){
     const g = new THREE.Group();
@@ -1582,21 +1606,18 @@ function buildArenaMap(){
     const bench = new THREE.Mesh(new THREE.BoxGeometry(2.6,0.4,0.8), mats.wood);
     bench.position.set(x + Math.cos(a)*2.2, 0.2, z + Math.sin(a)*2.2);
     bench.rotation.y = -a; bench.castShadow = true; root.add(bench);
-    state.collidables.push({ isStatic:true, getBounds:()=>({ minX:x-1, maxX:x+1, minZ:z-1, maxZ:z+1, minY:0, maxY:6 }), isRoof:true });
+    state.collidables.push({ isStatic:true, getBounds:()=>({ minX:x-1, maxX:x+1, minZ:z-1, maxZ:z+1, minY:0, maxY:6 }) });
   }
   
-  // Central platforms with ladders
+  // Central platforms (unclimbable obstacles)
   const platforms = [[-20,-20,5],[20,-20,6],[-20,20,5],[20,20,6],[0,0,7]];
   platforms.forEach(([x,z,h]) => {
     const p = new THREE.Mesh(new THREE.BoxGeometry(6, h, 6), mats.concrete);
     p.position.set(x, h/2, z); p.castShadow = true; root.add(p);
     state.collidables.push({ isStatic:true, getBounds:()=>({ minX:x-3, maxX:x+3, minZ:z-3, maxZ:z+3, minY:0, maxY:h }) });
-    state.collidables.push({ isStatic:true, isRoof:true, getBounds:()=>({ minX:x-3.2, maxX:x+3.2, minZ:z-3.2, maxZ:z+3.2, minY:h, maxY:h+0.1 }) });
-    // Ladder
-    createLadder(x+3.5, z, h);
   });
   
-  state.rooftopZones = platforms.map(([x,z,h]) => ({ x, z, w:6, dh:6, topY:h }));
+  state.rooftopZones = [];
 }
 
 function buildRuinsMap(){
@@ -1677,7 +1698,7 @@ function buildRuinsMap(){
     state.collidables.push({ isStatic:true, getBounds:()=>({ minX:x-1.2, maxX:x+1.2, minZ:z-1.2, maxZ:z+1.2, minY:0, maxY:1.6 }) });
   }
   
-  // A few tall ruined towers with ladders
+  // A few tall ruined towers (unclimbable obstacles)
   for (let i=0;i<3;i++){
     const angle = (i/3) * Math.PI * 2 + 0.3;
     const dist = 20;
@@ -1686,8 +1707,6 @@ function buildRuinsMap(){
     const tower = new THREE.Mesh(new THREE.BoxGeometry(5, h, 5), mats.stone);
     tower.position.set(x, h/2, z); tower.castShadow = true; root.add(tower);
     state.collidables.push({ isStatic:true, getBounds:()=>({ minX:x-2.5, maxX:x+2.5, minZ:z-2.5, maxZ:z+2.5, minY:0, maxY:h }) });
-    state.collidables.push({ isStatic:true, isRoof:true, getBounds:()=>({ minX:x-2.7, maxX:x+2.7, minZ:z-2.7, maxZ:z+2.7, minY:h, maxY:h+0.1 }) });
-    createLadder(x+2.8, z, h);
   }
   
   state.rooftopZones = [];
@@ -1802,6 +1821,8 @@ function startGame(){
   weaponRig.rotation.set(0,0,0);
   weaponKick = 0; swayX = 0; swayY = 0; bobT = 0;
   flashSprite.visible = false;
+  state.zooming = false;
+  camera.fov = 75; camera.updateProjectionMatrix();
   switchWeapon(0);
   state.lastMouseDX = 0; state.lastMouseDY = 0;
   
@@ -1833,10 +1854,15 @@ document.addEventListener('mousedown', (e) => {
     if (state.hammerMode) useHammer();
     else if (state.buildMode) placeStructure();
     else { state.mouseDown = true; shoot(); }
+  } else if (e.button === 2 && state.weapon === 'sniper'){
+    state.zooming = true;
   }
 });
 
-document.addEventListener('mouseup', () => { state.mouseDown = false; });
+document.addEventListener('mouseup', (e) => {
+  state.mouseDown = false;
+  if (e.button === 2) state.zooming = false;
+});
 setInterval(() => {
   if (state.mouseDown && pointerLocked && !state.gameOver && !state.activePanel && !state.buildMode && !state.hammerMode) shoot();
 }, 40);
@@ -1899,11 +1925,7 @@ document.getElementById('craft-close').addEventListener('click', () => togglePan
 document.getElementById('shop-close').addEventListener('click', () => togglePanel('shop'));
 document.getElementById('inv-close').addEventListener('click', () => togglePanel('inv'));
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+// Windowed 16:9 resize handled by fitGameWindow() near the renderer setup.
 
 // Alias for magSizes
 Object.defineProperty(state, 'mags', { value: state.magSizes, writable: false });
@@ -2049,24 +2071,37 @@ function updatePlayer(delta){
   camera.rotation.y = state.yaw;
   camera.rotation.x = state.pitch;
   
-  // Ghost preview
+  // Sniper scope zoom (hold right mouse)
+  if (state.weapon === 'sniper' && state.zooming) camera.fov += (22 - camera.fov) * Math.min(1, delta*10);
+  else if (camera.fov < 75) camera.fov += (75 - camera.fov) * Math.min(1, delta*10);
+  camera.updateProjectionMatrix();
+  
+  // Ghost preview — hologram of the selected build piece
   if (state.buildMode){
     if (!state.ghost){
-      state.ghost = new THREE.Mesh(
-        new THREE.BoxGeometry(2, 2.4, 0.4),
-        new THREE.MeshBasicMaterial({ color:0x00ffaa, transparent:true, opacity:0.3, depthWrite:false })
-      );
+      state.ghost = new THREE.Group();
+      const fillM = new THREE.MeshBasicMaterial({ color:0x00ffaa, transparent:true, opacity:0.32, depthWrite:false });
+      const wireM = new THREE.MeshBasicMaterial({ color:0x66ffdd, wireframe:true, transparent:true, opacity:0.95, depthWrite:false });
+      const fill = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), fillM);
+      const wire = new THREE.Mesh(new THREE.BoxGeometry(1.02,1.02,1.02), wireM);
+      state.ghost.add(fill); state.ghost.add(wire);
       scene.add(state.ghost);
     }
+    const dims = { wall:[2,2.4,0.4], ramp:[2,1.4,2], turret:[0.8,1.2,0.8], spikes:[2,0.7,2] };
+    const gd = dims[state.buildType] || dims.wall;
+    state.ghost.children.forEach(m => m.scale.set(gd[0], gd[1], gd[2]));
     state.ghost.visible = true;
     const dx = -Math.sin(state.yaw), dz = -Math.cos(state.yaw);
     const gx = camera.position.x + dx * 2.5;
     const gz = camera.position.z + dz * 2.5;
-    state.ghost.position.set(gx, 1.2, gz);
+    const gy = Math.max(getGroundY(gx, gz, camera.position.y), 0);
+    state.ghost.position.set(gx, gy + gd[1]/2, gz);
     state.ghost.rotation.y = state.yaw + state.buildRotation * Math.PI/180;
     const canP = canPlace(gx, gz);
     const hasR = state.wood >= buildCost[state.buildType].w && state.scrap >= buildCost[state.buildType].s;
-    state.ghost.material.color.setHex((canP && hasR) ? 0x00ffaa : 0xff3333);
+    const ok = canP && hasR;
+    state.ghost.children[0].material.color.setHex(ok ? 0x00ffaa : 0xff3333);
+    state.ghost.children[1].material.color.setHex(ok ? 0x66ffdd : 0xff5555);
   } else if (state.ghost){
     state.ghost.visible = false;
   }
@@ -2142,7 +2177,7 @@ function shoot(){
   updateHUD();
   sfx(state.weapon);
   
-  muzzleFlash.intensity = state.weapon === 'shotgun' ? 10 : 6;
+  muzzleFlash.intensity = state.weapon === 'shotgun' ? 6 : 3.5;
   setTimeout(() => muzzleFlash.intensity = 0, 50);
   flashSprite.visible = true;
   flashSprite.material.rotation = Math.random()*Math.PI*2;
@@ -2239,50 +2274,9 @@ function updateZombies(delta){
     const dy = pp.y - zp.y;
 
     updateZombieAnim(z, delta);
-
-    // Rooftop zombies hop down when player is nearby
-    if (z.userData.onRooftop){
-      // anti-stall: after 6s on the roof, come down on their own
-      if (z.userData.spawnRise >= 1 && performance.now() - z.userData.spawnTime > 6000){
-        z.userData.onRooftop = false;
-        z.userData.isFalling = true;
-        z.userData.velocityY = 2;
-        z.userData.spawnRise = 1;
-        z.scale.setScalar(z.userData.baseScale);
-      } else if (distXZ < 8 && Math.abs(dy) < 1.5 && dy < 0){
-        // Player below — hop down
-        z.userData.onRooftop = false;
-        z.userData.isFalling = true;
-        z.userData.velocityY = 2;
-        // complete any in-progress spawn rise so falling physics owns the Y
-        z.userData.spawnRise = 1;
-        z.scale.setScalar(z.userData.baseScale);
-      } else if (distXZ < 2 && Math.abs(dy) < 1){
-        // Player on same roof — attack
-        const now = performance.now();
-        if (now - z.userData.lastAttack > z.userData.attackCd){
-          z.userData.lastAttack = now;
-          damagePlayer(z.userData.damage);
-        }
-        z.rotation.y = Math.atan2(dx, dz);
-        continue;
-      }
-    }
-    
-    // Falling (from rooftop)
-    if (z.userData.isFalling){
-      z.userData.velocityY -= 22 * delta;
-      zp.y += z.userData.velocityY * delta;
-      const gy = getGroundY(zp.x, zp.z, zp.y);
-      if (zp.y <= gy){
-        zp.y = gy;
-        z.userData.isFalling = false;
-      }
-      continue;
-    }
     
     // Ground zombie chase
-    if (!z.userData.onRooftop && distXZ > 0.1){
+    if (distXZ > 0.1){
       // stay put (still underground) until spawn-rise completes
       if (z.userData.spawnRise < 1){ continue; }
       const nx = dx / distXZ, nz = dz / distXZ;
@@ -2309,8 +2303,19 @@ function updateZombies(delta){
       z.position.y = (z.userData.spawnRise >= 1 ? gy + Math.abs(Math.sin(wp)) * 0.05 : zp.y);
     }
     
+    // Exploder detonates on contact
+    if (z.userData.type === 'exploder' && distXZ < 1.3 && Math.abs(dy) < 1.8 && !state.gameOver){
+      explodeZombie(z);
+      scene.remove(z); state.zombies.splice(i,1);
+      state.score += z.userData.scoreValue;
+      state.waveZombiesRemaining--;
+      updateHUD();
+      if (state.waveZombiesRemaining <= 0) completeWave();
+      continue;
+    }
+    
     // Attack
-    if (distXZ < 1.4 + 0.3*(z.userData.baseScale||1) && Math.abs(dy) < 1.8 && !z.userData.isFalling){
+    if (distXZ < 1.4 + 0.3*(z.userData.baseScale||1) && Math.abs(dy) < 1.8){
       const now = performance.now();
       if (now - z.userData.lastAttack > z.userData.attackCd){
         z.userData.lastAttack = now;
@@ -2318,26 +2323,22 @@ function updateZombies(delta){
       }
     }
     
-    // Spikes
+    // Spikes — impale straight through
     if (state.spikes){
       for (const sp of state.spikes){
         const sdx = sp.position.x - zp.x, sdz = sp.position.z - zp.z;
         if (Math.sqrt(sdx*sdx + sdz*sdz) < 1.2){
-          const now = performance.now();
-          if (now - (z.userData.lastSpikeHit||0) > 500){
-            z.userData.lastSpikeHit = now;
-            z.userData.health -= sp.userData.damage / 2;
-            zombieHitFlash(z);
-            if (z.userData.health <= 0){
-              spawnBlood(zp.clone().add(new THREE.Vector3(0,1,0)), 30, 1, false);
-              spawnBloodDecal(zp.x, zp.z);
-              scene.remove(z); state.zombies.splice(i,1);
-              state.score += z.userData.scoreValue;
-              state.waveZombiesRemaining--;
-              updateHUD();
-              if (state.waveZombiesRemaining <= 0) completeWave();
-              break;
-            }
+          z.userData.health = 0;
+          zombieHitFlash(z);
+          if (z.userData.health <= 0){
+            spawnBlood(zp.clone().add(new THREE.Vector3(0,1,0)), 30, 1, false);
+            spawnBloodDecal(zp.x, zp.z);
+            scene.remove(z); state.zombies.splice(i,1);
+            state.score += z.userData.scoreValue;
+            state.waveZombiesRemaining--;
+            updateHUD();
+            if (state.waveZombiesRemaining <= 0) completeWave();
+            break;
           }
         }
       }
@@ -2441,28 +2442,20 @@ function completeWave(){
 function pickZombieType(){
   const w = state.wave;
   const r = Math.random();
-  if (w >= 5 && r < 0.15) return 'brute';
+  if (w >= 7 && r < 0.08) return 'tank';
+  if (w >= 5 && r < 0.18) return 'brute';
   if (w >= 3 && r < 0.35) return 'runner';
+  if (w >= 4 && r < 0.5) return 'crawler';
+  if (w >= 2 && r < 0.62) return 'exploder';
   return 'walker';
 }
 
 function spawnZombie(){
   const type = pickZombieType();
-  // 30% chance rooftop
-  if (state.rooftopZones && state.rooftopZones.length > 0 && Math.random() < 0.3){
-    const zone = state.rooftopZones[Math.floor(Math.random() * state.rooftopZones.length)];
-    const x = zone.x + (Math.random()-0.5) * (zone.w-1);
-    const z = zone.z + (Math.random()-0.5) * (zone.dh-1);
-    const zed = createZombie(x, z, zone.topY, true, type);
-    state.zombies.push(zed);
-    if (type === 'brute') addKill('🦍 Brute on the roof!');
-    else addKill('⚠️ Rooftop zombie!');
-  } else {
-    const a = Math.random() * Math.PI * 2;
-    const dist = 22 + Math.random() * 12;
-    const zed = createZombie(Math.sin(a) * dist, Math.cos(a) * dist, 0, false, type);
-    state.zombies.push(zed);
-  }
+  const a = Math.random() * Math.PI * 2;
+  const dist = 22 + Math.random() * 12;
+  const zed = createZombie(Math.sin(a) * dist, Math.cos(a) * dist, 0, type);
+  state.zombies.push(zed);
   updateHUD();
 }
 
@@ -2476,6 +2469,7 @@ function switchWeapon(slot){
   sniper.visible = false;
   hammer.visible = false;
   state.hammerMode = false;
+  state.zooming = false;
   if (state.buildMode) setBuildMode(false);
   
   // First-person arms only for gun slots
