@@ -44,6 +44,11 @@
   .map-opt.selected { border-color:#5fff9f; background:rgba(30,70,45,0.9); }
   #start-screen .btn { padding:14px 50px; background:linear-gradient(180deg,#e74c3c,#8a1a10); color:#fff; font-size:20px; font-weight:900; letter-spacing:2px; border:3px solid #fff; border-radius:10px; cursor:pointer; box-shadow:0 6px 0 #4a0a05; }
   #start-screen .btn:hover { transform:translateY(-2px); box-shadow:0 8px 0 #4a0a05; }
+  #gameover-screen { position:fixed; top:0; left:0; width:100%; height:100%; background:radial-gradient(circle at center,#1a0808,#050810); display:none; flex-direction:column; align-items:center; justify-content:center; z-index:210; color:#fff; text-align:center; padding:20px; }
+  #gameover-screen h1 { font-size:52px; color:#c0392b; letter-spacing:6px; text-shadow:4px 4px 0 #000, 0 0 40px rgba(192,57,43,0.6); margin-bottom:10px; font-weight:900; }
+  #gameover-screen .sub { font-size:16px; color:#bbb; letter-spacing:3px; margin-bottom:26px; }
+  #gameover-screen .btn { padding:14px 50px; background:linear-gradient(180deg,#e74c3c,#8a1a10); color:#fff; font-size:20px; font-weight:900; letter-spacing:2px; border:3px solid #fff; border-radius:10px; cursor:pointer; box-shadow:0 6px 0 #4a0a05; }
+  #gameover-screen .btn:hover { transform:translateY(-2px); box-shadow:0 8px 0 #4a0a05; }
 
   #wave-banner { position:fixed; top:30%; left:50%; transform:translate(-50%,-50%); font-size:64px; font-weight:900; color:#ffb347; text-shadow:0 0 40px #ff8800,4px 4px 0 #000; z-index:70; opacity:0; pointer-events:none; letter-spacing:8px; transition:opacity 0.3s, transform 0.5s; }
   #wave-banner.show { opacity:1; transform:translate(-50%,-50%) scale(1.1); }
@@ -122,6 +127,12 @@
     <div class="map-opt" data-map="ruins">🏚️ RUINS</div>
   </div>
   <button class="btn" id="start-btn">▶ PLAY</button>
+</div>
+
+<div id="gameover-screen">
+  <h1>💀 YOU DIED</h1>
+  <div class="sub" id="gameover-score">SCORE 0</div>
+  <button class="btn" id="restart-btn">↻ PLAY AGAIN</button>
 </div>
 
 <div id="click-hint">Click anywhere to play</div>
@@ -978,6 +989,7 @@ function createZombie(x, z, y=0, rooftop=false, type='walker'){
     flash:0, flashMats,
     onRooftop:rooftop, rooftopY:y,
     spawnBaseY:y, spawnRise:0,
+    spawnTime:performance.now(),
     isFalling:false
   };
   scene.add(g);
@@ -1748,9 +1760,10 @@ document.addEventListener('mousemove', (e) => {
 
 // ============ INPUT ============
 const startBtn = document.getElementById('start-btn');
-startBtn.addEventListener('click', () => {
+function startGame(){
   initAudio();
   document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('gameover-screen').style.display = 'none';
   clearMap();
   state.collidables = [];
   if (state.selectedMap === 'town') buildTownMap();
@@ -1795,6 +1808,12 @@ startBtn.addEventListener('click', () => {
   startWave();
   updateHUD();
   requestLock();
+}
+startBtn.addEventListener('click', () => startGame());
+const restartBtn = document.getElementById('restart-btn');
+restartBtn.addEventListener('click', () => startGame());
+document.addEventListener('keydown', (e) => {
+  if (state.gameOver && e.code === 'Enter') startGame();
 });
 
 document.querySelectorAll('.map-opt').forEach(opt => {
@@ -2223,11 +2242,21 @@ function updateZombies(delta){
 
     // Rooftop zombies hop down when player is nearby
     if (z.userData.onRooftop){
-      if (distXZ < 8 && Math.abs(dy) < 1.5 && dy < 0){
+      // anti-stall: after 6s on the roof, come down on their own
+      if (z.userData.spawnRise >= 1 && performance.now() - z.userData.spawnTime > 6000){
+        z.userData.onRooftop = false;
+        z.userData.isFalling = true;
+        z.userData.velocityY = 2;
+        z.userData.spawnRise = 1;
+        z.scale.setScalar(z.userData.baseScale);
+      } else if (distXZ < 8 && Math.abs(dy) < 1.5 && dy < 0){
         // Player below — hop down
         z.userData.onRooftop = false;
         z.userData.isFalling = true;
         z.userData.velocityY = 2;
+        // complete any in-progress spawn rise so falling physics owns the Y
+        z.userData.spawnRise = 1;
+        z.scale.setScalar(z.userData.baseScale);
       } else if (distXZ < 2 && Math.abs(dy) < 1){
         // Player on same roof — attack
         const now = performance.now();
@@ -2368,6 +2397,8 @@ function damagePlayer(amount){
       state.gameOver = true;
       document.exitPointerLock();
       addKill('💀 YOU DIED — Score: ' + state.score);
+      document.getElementById('gameover-score').textContent = 'SCORE ' + state.score + ' · WAVE ' + state.wave + ' · KILLS ' + state.kills;
+      document.getElementById('gameover-screen').style.display = 'flex';
     }
   }
   updateHUD();
