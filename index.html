@@ -2684,6 +2684,12 @@ function damagePlayer(amount){
 function startWave(){
   let carry = state.skipCarry || 0;
   state.skipCarry = 0;
+  // skip window expired without pressing F — the wave just spawns now
+  if (state.skipReady){
+    state.skipReady = false;
+    const pr = document.getElementById('skip-prompt');
+    if (pr) pr.classList.remove('show');
+  }
   let base = 4 + state.wave * 3;
   if (state.wave % 5 === 0) base += 1; // boss wave slot
   // player chose to skip this wave — its horde merges into the next
@@ -2721,26 +2727,23 @@ function startWave(){
 
 function completeWave(){
   state.waveActive = false;
-  state.waveCooldown = 4;
   state.wave++;
   const bonus = state.wave * 50;
   state.score += bonus;
   for (const w in state.reserve) state.reserve[w] += 30;
   state.health = Math.min(state.maxHealth, state.health + 20);
   state.wood += 5; state.scrap += 3;
+  // every 3rd cleared wave offers a SKIP for the coming one
+  state.skipReady = (state.wave % 3 === 0);
+  // skip window lasts 5 seconds, then the wave just spawns
+  state.waveCooldown = state.skipReady ? 5 : 4;
   const timer = document.getElementById('wave-timer');
   timer.classList.add('show');
   timer.textContent = 'NEXT WAVE IN ' + Math.ceil(state.waveCooldown);
   addKill(`✅ Wave ${state.wave-1} cleared! +${bonus}`);
-  // every 3rd cleared wave offers a SKIP for the coming one
-  state.skipReady = (state.wave % 3 === 0);
-  if (state.skipReady){
-    const prompt = document.getElementById('skip-prompt');
-    if (prompt) prompt.classList.add('show');
-  } else {
-    const prompt = document.getElementById('skip-prompt');
-    if (prompt) prompt.classList.remove('show');
-  }
+  const prompt = document.getElementById('skip-prompt');
+  if (state.skipReady){ if (prompt) prompt.classList.add('show'); }
+  else if (prompt) prompt.classList.remove('show');
   updateHUD();
 }
 
