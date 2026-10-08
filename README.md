@@ -44,6 +44,8 @@ Walker, Runner, Crawler, Exploder, Spitter, Hound, Brute, Tank — plus specials
 - **Corruption** — leaves a corruption puddle on death; zombies inside regen and shrug off 30% of damage
 - **Slime** — splits into 2, then 4 smaller slimes before finally dying
 
+Every 4th wave ends in a **Boss** — huge, armored, and horned.
+
 ## Fling Thrower
 
 Gravity cannon (slot 7, buy at the Shop) — lobs an orb that hurls zombies sky-high; they take fall damage on the way down.

@@ -1091,6 +1091,7 @@ const ZOMBIE_TYPES = {
 };
 
 function createZombie(x, z, y=0, type='walker'){
+  if (type === 'slime') return createSlimeZombie(x, z, y);
   const arch = ZOMBIE_TYPES[type] || ZOMBIE_TYPES.walker;
   const g = new THREE.Group();
 
@@ -1231,20 +1232,30 @@ function createZombie(x, z, y=0, type='walker'){
     legPivots.push({ hip:hipP, knee:kneeP });
   });
 
+  // Hidden base body: witch/zhog are fully custom models
+  if (type === 'witch' || type === 'zhog') g.traverse(c => { if (c !== g) c.visible = false; });
   // WITCH: dark robe + hood
   if (type === 'witch'){
     const robeMat = new THREE.MeshStandardMaterial({ color:0x1a0f30, roughness:0.92 });
     const robe = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.5, 10), robeMat);
     robe.position.set(0, 0.55, 0); robe.scale.set(1, 0.78, 0.8);
     robe.castShadow = true; g.add(robe);
+    const robeHem = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 0.18, 10), robeMat);
+    robeHem.position.set(0, 0.12, -0.02); g.add(robeHem);
     const hood = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.55, 8), robeMat);
-    hood.position.set(0, 1.2, 0.02); hood.rotation.x = 0.2; g.add(hood);
+    hood.position.set(0, 1.22, 0.02); hood.rotation.x = 0.2; g.add(hood);
+    // hollow shadow face + glowing eyes under the hood
+    const face = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshStandardMaterial({ color:0x0a0618 }));
+    face.position.set(0, 1.02, 0.02); face.scale.set(0.7, 0.85, 0.7); g.add(face);
+    const eGeo = new THREE.BoxGeometry(0.06, 0.09, 0.05);
+    const wle = new THREE.Mesh(eGeo, mats.eyeGlow); wle.position.set(-0.07, 1.14, 0.08); wle.rotation.z = 0.2; g.add(wle);
+    const wre = new THREE.Mesh(eGeo, mats.eyeGlow); wre.position.set(0.07, 1.14, 0.08); wre.rotation.z = -0.2; g.add(wre);
     const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.7, 6), mats.wood);
     staff.position.set(0.5, 0.85, 0.1); g.add(staff);
     const orb = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8),
       new THREE.MeshStandardMaterial({ color:0xaa55ff, emissive:0x9933ff, emissiveIntensity:2 }));
     orb.position.set(0.5, 1.75, 0.1); g.add(orb);
-    flashMats.push(orb.material);
+    flashMats.push(robeMat, orb.material);
   }
   if (type === 'zhog'){
     // GORE HOG mount — oversized boar body under the rider
@@ -1273,29 +1284,58 @@ function createZombie(x, z, y=0, type='walker'){
     // strap
     const strap = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.9, 0.04), gunDark);
     strap.position.set(0.22, 1.5, 0); g.add(strap);
+    // hog legs, hooves + tail
+    for (const sx of [-1,1]){
+      const legF = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.09, 0.4, 6), hogMat);
+      legF.position.set(sx*0.4, 0.28, 0.6); g.add(legF);
+      const legB = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.09, 0.45, 6), hogMat);
+      legB.position.set(sx*0.42, 0.28, -0.55); g.add(legB);
+      const hoof = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.08, 0.12), darkMat);
+      hoof.position.set(sx*0.4, 0.08, 0.6); g.add(hoof);
+    }
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.3, 5), hogMat);
+    tail.position.set(0, 1.0, -1.25); tail.rotation.x = 0.6; g.add(tail);
+    flashMats.push(hogMat);
   }
   if (type === 'golem'){
-    const stoneMat = new THREE.MeshStandardMaterial({ color:0x5a5a66, roughness:0.95, metalness:0.15 });
-    const pauldron = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.32, 0.52), stoneMat);
-    pauldron.position.set(0, 0.78, 0); pauldron.castShadow = true; torso.add(pauldron);
-    const backSlab = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.75, 0.28), stoneMat);
-    backSlab.position.set(0, 0.52, -0.35); backSlab.castShadow = true; torso.add(backSlab);
-    const facePlate = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.3, 0.1), stoneMat);
-    facePlate.position.set(0, 0.16, 0.22); head.add(facePlate);
+    g.traverse(c => { if (c !== g) c.visible = false; });
+    torso.visible = true; head.visible = true;
+    const stoneMat = new THREE.MeshStandardMaterial({ color:0x565660, roughness:0.95, metalness:0.15 });
+    const stoneDark = new THREE.MeshStandardMaterial({ color:0x3a3a44, roughness:0.95 });
+    const rockTorso = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.92, 0.6), stoneMat);
+    rockTorso.position.set(0, 0.4, 0); rockTorso.castShadow = true; torso.add(rockTorso);
+    const crack = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.6, 0.62), stoneDark);
+    crack.position.set(0.18, 0.42, 0.05); crack.rotation.z = 0.3; torso.add(crack);
+    const headRock = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.42, 0.4), stoneMat);
+    headRock.position.set(0, 0.16, 0.03); headRock.castShadow = true; head.add(headRock);
+    const gEyeMat = new THREE.MeshStandardMaterial({ color:0x881122, emissive:0xff2200, emissiveIntensity:1.8 });
+    const gL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.04), gEyeMat);
+    gL.position.set(-0.1, 0.2, 0.24); head.add(gL);
+    const gR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.04), gEyeMat);
+    gR.position.set(0.1, 0.2, 0.24); head.add(gR);
+    // animated stone limbs swing on the existing pivots
+    armPivots.forEach(p => {
+      p.shoulder.visible = true; p.elbow.visible = true;
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.5, 0.24), stoneMat);
+      arm.position.set(0, -0.24, 0); arm.castShadow = true; p.shoulder.add(arm);
+      const fist = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.26, 0.3), stoneDark);
+      fist.position.set(0, -0.5, 0); p.elbow.add(fist);
+    });
+    legPivots.forEach(p => {
+      p.hip.visible = true; p.knee.visible = true;
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.5, 0.28), stoneMat);
+      leg.position.set(0, -0.24, 0); leg.castShadow = true; p.hip.add(leg);
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.12, 0.4), stoneDark);
+      foot.position.set(0, -0.42, 0.1); p.knee.add(foot);
+    });
+    // pelvis leg mount stays hidden but hips are re-shown
     const gemMat = new THREE.MeshStandardMaterial({ color:0x5a1a1a, emissive:0xff3311, emissiveIntensity:1.6 });
     const gem = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.18), gemMat);
-    gem.position.set(0, 0.45, 0.32); gem.castShadow = true; torso.add(gem);
-    flashMats.push(gemMat);
+    gem.position.set(0, 0.32, 0.34); gem.castShadow = true; torso.add(gem);
+    flashMats.push(stoneMat, stoneDark, gemMat);
   }
   if (type === 'slime'){
-    const blobMat = new THREE.MeshStandardMaterial({ color:0x2a8a2a, transparent:true, opacity:0.85, roughness:0.35 });
-    const blob = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 10), blobMat);
-    blob.position.set(0, 0.7, 0); blob.scale.set(1.15, 0.8, 1.1); blob.castShadow = true; g.add(blob);
-    for (let k=0;k<3;k++){
-      const drip = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 6), blobMat);
-      drip.position.set((Math.random()-0.5)*0.5, 0.22, (Math.random()-0.5)*0.5); g.add(drip);
-    }
-    flashMats.push(blobMat);
+    // (handled by createSlimeZombie early-return)
   }
   if (type === 'corrupt'){
     const tendrilMat = new THREE.MeshStandardMaterial({ color:0x1c3a1c, emissive:0x22ff44, emissiveIntensity:0.7, roughness:0.6 });
@@ -1355,6 +1395,49 @@ function createZombie(x, z, y=0, type='walker'){
     flash:0, flashMats,
     spawnBaseY:y, spawnRise:0,
     drillMound,
+    submerged:0, splitStage:0, corruptBuff:false
+  };
+  scene.add(g);
+  return g;
+}
+
+function createSlimeZombie(x, z, y=0){
+  const arch = ZOMBIE_TYPES.slime;
+  const g = new THREE.Group();
+  const blobMat = new THREE.MeshStandardMaterial({ color:0x2a8a2a, transparent:true, opacity:0.88, roughness:0.35 });
+  const coreMat = new THREE.MeshStandardMaterial({ color:0x1c5a1c, roughness:0.4 });
+  const flashMats = [blobMat, coreMat];
+  const blob = new THREE.Mesh(new THREE.SphereGeometry(0.55, 14, 11), blobMat);
+  blob.scale.set(1.2, 0.82, 1.1); blob.position.set(0, 0.55, 0); blob.castShadow = true; g.add(blob);
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), coreMat);
+  core.scale.set(0.9, 0.8, 0.9); core.position.set(0, 0.6, 0); g.add(core);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.52, 12, 9), blobMat);
+  cap.scale.set(0.94, 0.9, 0.9); cap.position.set(0, 0.72, 0); g.add(cap);
+  for (let k=0;k<4;k++){
+    const d = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), blobMat);
+    d.position.set((Math.random()-0.5)*0.7, 0.22, (Math.random()-0.5)*0.6); g.add(d);
+    d.castShadow = false;
+  }
+  const eGeo = new THREE.SphereGeometry(0.09, 6, 6);
+  const le = new THREE.Mesh(eGeo, mats.eyeGlow); le.position.set(-0.17, 0.88, 0.5); le.castShadow = false; g.add(le);
+  const re = new THREE.Mesh(eGeo, mats.eyeGlow); re.position.set(0.17, 0.88, 0.5); re.castShadow = false; g.add(re);
+  const baseScale = arch.scale[0] + Math.random()*(arch.scale[1]-arch.scale[0]);
+  g.scale.setScalar(baseScale);
+  g.position.set(x, y, z);
+  let hpMax = Math.round(arch.hp * (1 + (state.wave - 1) * 0.25));
+  const dummy = new THREE.Group();
+  g.userData = {
+    type:'slime', health:hpMax, maxHealth:hpMax,
+    speed: arch.speed[0] + Math.random()*(arch.speed[1]-arch.speed[0]),
+    damage:arch.damage, scoreValue:arch.score, attackCd:arch.attackCd,
+    baseScale,
+    lastAttack:0, walkPhase:Math.random()*6,
+    leftArm:dummy, rightArm:dummy, leftElbow:dummy, rightElbow:dummy,
+    leftLeg:dummy, rightLeg:dummy, leftKnee:dummy, rightKnee:dummy,
+    head:g, jaw:dummy,
+    flash:0, flashMats,
+    spawnBaseY:y, spawnRise:0,
+    drillMound:null,
     submerged:0, splitStage:0, corruptBuff:false
   };
   scene.add(g);
@@ -1424,17 +1507,18 @@ function killZombie(z, hitPos, forceDir, scoreMult=1, source='player'){
     const kids = ud.splitStage === 0 ? 2 : 4;
     const gy = Math.max(getGroundY(z.position.x, z.position.z, 0), 0);
     for (let k = 0; k < kids; k++){
-      const sx = z.position.x + (Math.random()-0.5)*1.6;
-      const sz = z.position.z + (Math.random()-0.5)*1.6;
+      const a = (k / kids) * Math.PI * 2 + Math.random();
+      const sx = z.position.x + Math.sin(a) * 1.4;
+      const sz = z.position.z + Math.cos(a) * 1.4;
       const kid = createZombie(sx, sz, gy + 0.3, 'slime');
       kid.userData.splitStage = ud.splitStage + 1;
-      const kidScale = kid.userData.baseScale * (ud.splitStage === 0 ? 0.55 : 0.42);
       kid.userData.health = kid.userData.maxHealth = Math.max(1, Math.round(ud.maxHealth * (ud.splitStage === 0 ? 0.45 : 0.35)));
       kid.userData.scoreValue = (ud.splitStage === 0 ? 4 : 2);
-      kid.userData.baseScale = kidScale;
-      kid.scale.setScalar(kidScale);
-      kid.userData.spawnRise = 1;
-      kid.userData.fling = { vx:(Math.random()-0.5)*4, vy:5 + Math.random()*2, vz:(Math.random()-0.5)*4 };
+      kid.userData.baseScale *= (ud.splitStage === 0 ? 0.55 : 0.42);
+      kid.scale.setScalar(kid.userData.baseScale);
+      kid.userData.spawnRise = 0;
+      kid.userData.spawnBaseY = gy + 0.3;
+      kid.userData.squish = 0;
       state.zombies.push(kid);
     }
     addKill('🟢 Slime split!');
@@ -2484,8 +2568,14 @@ function checkCollision(nx, nz, py){
   for (const c of state.collidables){
     const b = c.getBounds ? c.getBounds() : c;
     if (!b) continue;
-    // Ramps: walk onto/over them from any direction, height handled by getGroundY
-    if (c.isRamp && c.getRampY && c.getRampY(nx, nz) !== null) continue;
+    // Ramps: one-way walkable — stand on/off freely, but the tall face stops a ground walk-through
+    if (c.isRamp && c.getRampY){
+      const ry = c.getRampY(nx, nz);
+      if (ry === null) continue;
+      if (ry <= pMinY + 1.2) continue;  // surface at/under your feet: step on, climb, or step off
+      if (pMaxY < ry - 1.4) continue;   // you're already above the ramp here — walk over
+      return true;                      // otherwise the ramp surface blocks you
+    }
     if (pMaxY < b.minY || pMinY > b.maxY) continue;
     if (c.isRoof && pMaxY > b.minY - 0.1 && pMinY < b.minY) continue;
     if (nx + pr > b.minX && nx - pr < b.maxX && nz + pr > b.minZ && nz - pr < b.maxZ) return true;
@@ -3005,6 +3095,8 @@ function updateZombies(delta){
       if (m0) m0.emissive.setRGB(0, 0.35 + Math.sin(Date.now() * 0.01) * 0.2, 0.1);
     } else {
       z.userData.corruptBuff = false;
+      const m0 = z.userData.flashMats && z.userData.flashMats[0];
+      if (m0 && z.userData.flash <= 0) m0.emissive.setRGB(0, 0, 0);
     }
 
     // Separation: zombies shove each other apart instead of stacking
@@ -3150,7 +3242,7 @@ function startWave(){
   const doubled = carry > 0;
   state.waveZombiesTotal = base;
   state.waveZombiesRemaining = base;
-  state.bossPending = (state.wave % 5 === 0) ? 1 : 0;
+  state.bossPending = (state.wave % 4 === 0) ? 1 : 0;
   state.zombieSpawnInterval = Math.max(340, 1150 - state.wave * 100);
   state.zombieSpawnTimer = 0;
   state.waveActive = true;
@@ -3166,6 +3258,7 @@ function startWave(){
 }
 
 function completeWave(){
+  if (!state.waveActive) return;
   state.waveActive = false;
   state.wave++;
   const bonus = state.wave * 50;
