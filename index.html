@@ -56,6 +56,10 @@
   #wave-sub.show { opacity:1; }
   #wave-timer { position:fixed; top:80px; left:50%; transform:translateX(-50%); font-size:26px; font-weight:900; color:#7fd3ff; text-shadow:0 0 20px #3498db,2px 2px 0 #000; z-index:60; opacity:0; letter-spacing:3px; background:rgba(0,0,0,0.8); padding:8px 24px; border-radius:10px; border:3px solid #3498db; }
   #wave-timer.show { opacity:1; }
+  #skip-prompt { position:fixed; top:110px; left:50%; transform:translateX(-50%); font-size:20px; font-weight:900; color:#ffd700; text-shadow:0 0 20px #b8860b,2px 2px 0 #000; z-index:60; opacity:0; letter-spacing:1px; background:rgba(20,10,0,0.85); padding:8px 22px; border-radius:10px; border:3px solid #ffd700; animation:skipblink 1s infinite; pointer-events:none; }
+  #skip-prompt b { color:#fff; }
+  #skip-prompt.show { opacity:1; }
+  @keyframes skipblink { 0%,100% { box-shadow:0 0 10px #ffd700; } 50% { box-shadow:0 0 28px #ff8800; } }
 
   #kill-feed { position:fixed; top:70px; right:14px; z-index:50; display:flex; flex-direction:column; gap:3px; align-items:flex-end; }
   .kill-msg { background:rgba(0,0,0,0.85); border-right:3px solid #c0392b; color:#fff; padding:5px 12px; font-size:12px; border-radius:4px; animation:kfade 2.5s forwards; font-weight:600; }
@@ -68,6 +72,7 @@
   #scope-overlay.show { display:block; }
   #offind { position:fixed; inset:0; pointer-events:none; z-index:58; }
   .offind-dot { position:fixed; width:9px; height:9px; border-radius:50%; background:#ff1f1f; box-shadow:0 0 10px #ff1f1f,0 0 2px #fff; transform:translate(-50%,-50%); }
+  .offind-dot.ws-dot { width:12px; height:12px; background:#ff0000; box-shadow:0 0 14px #ff0000,0 0 3px #fff; }
 
   #build-indicator { position:fixed; top:110px; left:50%; transform:translateX(-50%); color:#5fff9f; font-size:13px; font-weight:bold; text-shadow:2px 2px 0 #000; z-index:55; background:rgba(0,0,0,0.85); padding:6px 14px; border-radius:8px; border:2px solid #5fff9f; display:none; }
   #build-indicator.show { display:block; }
@@ -144,6 +149,7 @@
 <div id="wave-banner">WAVE 1</div>
 <div id="wave-sub">GET READY</div>
 <div id="wave-timer">NEXT WAVE IN 8</div>
+<div id="skip-prompt">⏭️ SKIP NEXT WAVE? <b>[F]</b> — its horde joins the following wave</div>
 <div id="damage-overlay"></div>
 <div id="build-indicator">🔨 BUILD MODE</div>
 <div id="hp-info"><div id="hp-label">Wall</div><div class="bar"><div class="fill" id="hp-fill"></div></div></div>
@@ -278,7 +284,8 @@ const state = {
   ownedWeapons:['rifle'],
   zombieSpawnTimer:0, zombieSpawnInterval:1800,
   wave:1, waveZombiesRemaining:0, waveZombiesTotal:0,
-  waveActive:false, waveCooldown:0,
+  waveActive:false, waveCooldown:0, waveTimerShown:0,
+  skipReady:false, skipArmed:false, skipCarry:0, bossPending:0,
   keys:{}, mouseDown:false,
   sprinting:false, sprintStamina:100,
   wood:0, scrap:0,
@@ -930,14 +937,15 @@ function spawnBloodDecal(x, z){
 
 // ============ ZOMBIE ============
 const ZOMBIE_TYPES = {
-  walker: { hp:3,   speed:[0.03,0.055], scale:[0.98,1.05], damage:8,  score:12, attackCd:750,  shirt:0x3a5a7a },
-  runner: { hp:2,   speed:[0.085,0.11],  scale:[0.9,0.95],  damage:5,  score:16, attackCd:450,  shirt:0x4a4a4a },
-  brute:  { hp:9,   speed:[0.02,0.03],   scale:[1.35,1.45], damage:18, score:35, attackCd:1000, shirt:0x2b2b3a },
-  crawler:{ hp:1,   speed:[0.12,0.17],   scale:[0.62,0.7],  damage:4,  score:16, attackCd:380,  shirt:0x553322 },
-  exploder:{hp:2,   speed:[0.085,0.115], scale:[1.0,1.1],   damage:0,  score:22, attackCd:9e9,  shirt:0x4a3a2a },
-  tank:   { hp:16,  speed:[0.017,0.025], scale:[1.55,1.7],  damage:28, score:70, attackCd:1150, shirt:0x1c1c28 },
-  spitter:{ hp:4,   speed:[0.05,0.07],   scale:[1.0,1.08],  damage:0,  score:30, attackCd:1600, shirt:0x3a5a3a },
-  hound:  { hp:1,   speed:[0.15,0.19],   scale:[0.75,0.85], damage:6,  score:20, attackCd:420,  shirt:0x17171f }
+  walker: { hp:4,   speed:[0.03,0.055], scale:[0.98,1.05], damage:10, score:12, attackCd:750,  shirt:0x3a5a7a },
+  runner: { hp:3,   speed:[0.085,0.11],  scale:[0.9,0.95],  damage:7,  score:16, attackCd:450,  shirt:0x4a4a4a },
+  brute:  { hp:13,  speed:[0.02,0.03],   scale:[1.6,1.8],   damage:24, score:35, attackCd:1000, shirt:0x2b2b3a },
+  crawler:{ hp:2,   speed:[0.12,0.17],   scale:[0.62,0.7],  damage:6,  score:16, attackCd:380,  shirt:0x553322 },
+  exploder:{hp:3,   speed:[0.085,0.115], scale:[1.0,1.1],   damage:0,  score:22, attackCd:9e9,  shirt:0x4a3a2a },
+  tank:   { hp:28,  speed:[0.017,0.025], scale:[1.95,2.25], damage:36, score:70, attackCd:1150, shirt:0x1c1c28 },
+  spitter:{ hp:6,   speed:[0.05,0.07],   scale:[1.0,1.08],  damage:0,  score:30, attackCd:1600, shirt:0x3a5a3a },
+  hound:  { hp:2,   speed:[0.15,0.19],   scale:[0.75,0.85], damage:8,  score:20, attackCd:420,  shirt:0x17171f },
+  boss:   { hp:120, speed:[0.008,0.012], scale:[2.4,2.9],   damage:50, score:300, attackCd:1600, shirt:0x1a0520 }
 };
 
 function createZombie(x, z, y=0, type='walker'){
@@ -1084,11 +1092,33 @@ function createZombie(x, z, y=0, type='walker'){
   const baseScale = arch.scale[0] + Math.random()*(arch.scale[1]-arch.scale[0]);
   g.scale.setScalar(baseScale);
   g.position.set(x, y, z);
+
+  // low waves are gentle; every wave past 1 makes the undead tougher
+  let hpMax = Math.round(arch.hp * (1 + (state.wave - 1) * 0.25));
+  let scoreVal = arch.score;
+  if (type === 'boss'){
+    hpMax = 120 + state.wave * 100;
+    scoreVal = 300 + state.wave * 40;
+    // horrific horns + glowing chest core + gorilla arms
+    const hornMat = new THREE.MeshStandardMaterial({ color:0x2a0a1a, roughness:0.6, emissive:0x2a0000 });
+    [[-0.4,0],[0.4,0]].forEach(hv => {
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.45, 6), hornMat);
+      horn.position.set(hv[0], 0.2, -0.1);
+      horn.rotation.x = 0.6;
+      head.add(horn);
+    });
+    const coreMat = new THREE.MeshStandardMaterial({ color:0xff2200, emissive:0xff1100, emissiveIntensity:2.5 });
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), coreMat);
+    core.position.set(0, 0.4, 0.34);
+    g.add(core);
+    armPivots.forEach(p => p.shoulder.scale.setScalar(1.45));
+  }
+
   g.userData = {
     type,
-    health:arch.hp, maxHealth:arch.hp,
+    health:hpMax, maxHealth:hpMax,
     speed: arch.speed[0] + Math.random()*(arch.speed[1]-arch.speed[0]),
-    damage:arch.damage, scoreValue:arch.score, attackCd:arch.attackCd,
+    damage:arch.damage, scoreValue:scoreVal, attackCd:arch.attackCd,
     baseScale,
     lastAttack:0, walkPhase:Math.random()*6,
     leftArm:armPivots[0].shoulder, rightArm:armPivots[1].shoulder,
@@ -1995,7 +2025,16 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'KeyT') togglePanel('shop');
   if (e.code === 'KeyQ') togglePanel('inv');
   if (e.code === 'KeyB') setBuildMode(!state.buildMode);
-  if (e.code === 'KeyF' && state.buildMode) placeStructure();
+  if (e.code === 'KeyF'){
+    if (state.skipReady && !state.waveActive){
+      state.skipReady = false;
+      state.skipArmed = true;
+      const prompt = document.getElementById('skip-prompt');
+      if (prompt) prompt.classList.remove('show');
+      addKill('⏭️ Next wave marked for skip — its horde joins the following wave');
+      sfx('build');
+    } else if (state.buildMode) placeStructure();
+  }
   if (e.code === 'KeyX' && state.buildMode){
     const types = ['wall','ramp','turret','spikes'];
     const idx = types.indexOf(state.buildType);
@@ -2097,11 +2136,8 @@ function checkCollision(nx, nz, py){
   for (const c of state.collidables){
     const b = c.getBounds ? c.getBounds() : c;
     if (!b) continue;
-    // Ramps: stand/walk on the slope instead of treating it as a solid block
-    if (c.isRamp && c.getRampY){
-      const ry = c.getRampY(nx, nz);
-      if (ry !== null && pMinY >= ry - 0.25) continue;
-    }
+    // Ramps: walk onto/over them from any direction, height handled by getGroundY
+    if (c.isRamp && c.getRampY && c.getRampY(nx, nz) !== null) continue;
     if (pMaxY < b.minY || pMinY > b.maxY) continue;
     if (c.isRoof && pMaxY > b.minY - 0.1 && pMinY < b.minY) continue;
     if (nx + pr > b.minX && nx - pr < b.maxX && nz + pr > b.minZ && nz - pr < b.maxZ) return true;
@@ -2579,16 +2615,37 @@ function damagePlayer(amount){
 
 // ============ WAVES ============
 function startWave(){
-  state.waveActive = true;
-  state.waveZombiesTotal = 3 + state.wave * 2;
-  state.waveZombiesRemaining = state.waveZombiesTotal;
+  let carry = state.skipCarry || 0;
+  state.skipCarry = 0;
+  let base = 4 + state.wave * 3;
+  if (state.wave % 5 === 0) base += 1; // boss wave slot
+  // player chose to skip this wave — its horde merges into the next
+  if (state.skipArmed){
+    state.skipArmed = false;
+    state.skipCarry = base;
+    state.waveActive = false;
+    state.wave++;
+    state.waveCooldown = 4;
+    const timer = document.getElementById('wave-timer');
+    timer.classList.add('show');
+    timer.textContent = 'SKIPPED — NEXT WAVE DOUBLED';
+    addKill(`⏭️ Wave ${state.wave-1} skipped — its horde joins wave ${state.wave}`);
+    updateHUD();
+    return;
+  }
+  base += carry;
+  const doubled = carry > 0;
+  state.waveZombiesTotal = base;
+  state.waveZombiesRemaining = base;
+  state.bossPending = (state.wave % 5 === 0) ? 1 : 0;
   state.zombieSpawnInterval = Math.max(400, 1300 - state.wave * 100);
   state.zombieSpawnTimer = 0;
+  state.waveActive = true;
   sfx('wave');
   const banner = document.getElementById('wave-banner');
   const sub = document.getElementById('wave-sub');
   banner.textContent = 'WAVE ' + state.wave;
-  sub.textContent = state.waveZombiesTotal + ' ZOMBIES INCOMING';
+  sub.textContent = doubled ? 'DOUBLE HORDE — ' + base + ' ZOMBIES' : base + ' ZOMBIES INCOMING';
   banner.classList.add('show'); sub.classList.add('show');
   setTimeout(() => { banner.classList.remove('show'); sub.classList.remove('show'); }, 2000);
   document.getElementById('wave-timer').classList.remove('show');
@@ -2608,7 +2665,26 @@ function completeWave(){
   timer.classList.add('show');
   timer.textContent = 'NEXT WAVE IN ' + Math.ceil(state.waveCooldown);
   addKill(`✅ Wave ${state.wave-1} cleared! +${bonus}`);
+  // every 3rd cleared wave offers a SKIP for the coming one
+  state.skipReady = (state.wave % 3 === 0);
+  if (state.skipReady){
+    const prompt = document.getElementById('skip-prompt');
+    if (prompt) prompt.classList.add('show');
+  } else {
+    const prompt = document.getElementById('skip-prompt');
+    if (prompt) prompt.classList.remove('show');
+  }
   updateHUD();
+}
+
+function announceBoss(){
+  const banner = document.getElementById('wave-banner');
+  const sub = document.getElementById('wave-sub');
+  banner.textContent = '⚠️ BOSS ⚠️';
+  sub.textContent = 'A COLOSSUS RISES';
+  banner.classList.add('show'); sub.classList.add('show');
+  setTimeout(() => { banner.classList.remove('show'); sub.classList.remove('show'); }, 2600);
+  sfx('wave');
 }
 
 function pickZombieType(){
@@ -2625,7 +2701,8 @@ function pickZombieType(){
 }
 
 function spawnZombie(){
-  const type = pickZombieType();
+  let type = pickZombieType();
+  if (state.bossPending > 0){ type = 'boss'; state.bossPending--; announceBoss(); }
   const a = Math.random() * Math.PI * 2;
   const dist = 22 + Math.random() * 12;
   const zed = createZombie(Math.sin(a) * dist, Math.cos(a) * dist, 0, type);
@@ -2843,16 +2920,43 @@ let hudTick = 0;
 const scopeOverlay = document.getElementById('scope-overlay');
 const offLayer = document.getElementById('offind');
 let offDots = [];
+let wsDots = [];
+const _hsV = new THREE.Vector3();
+const _hsP = new THREE.Vector3();
+
+function losBlocked(target){
+  const N = 10;
+  const sx = camera.position.x, sy = camera.position.y, sz = camera.position.z;
+  for (let k = 1; k < N; k++){
+    const t = k / N;
+    const px = sx + (target.x - sx) * t;
+    const py = sy + (target.y - sy) * t;
+    const pz = sz + (target.z - sz) * t;
+    for (const c of state.collidables){
+      const b = c.getBounds ? c.getBounds() : c;
+      if (!b) continue;
+      if (px > b.minX && px < b.maxX && pz > b.minZ && pz < b.maxZ && py > b.minY && py < b.maxY) return true;
+    }
+  }
+  return false;
+}
 
 function renderCombatUI(){
   const showScope = state.weapon === 'sniper' && state.zooming;
   scopeOverlay.classList.toggle('show', showScope);
-  // Off-screen zombie indicator dots (red edges when you can't find them)
   const zs = state.zombies;
+  // Off-screen zombie indicator dots (red edges when you can't find them)
   while (offDots.length < zs.length){
     const d = document.createElement('div');
     d.className = 'offind-dot';
     offDots.push(d);
+    offLayer.appendChild(d);
+  }
+  // Dots above zombies hidden behind walls/objects
+  while (wsDots.length < zs.length){
+    const d = document.createElement('div');
+    d.className = 'offind-dot ws-dot';
+    wsDots.push(d);
     offLayer.appendChild(d);
   }
   const vw = window.innerWidth, vh = window.innerHeight;
@@ -2865,12 +2969,29 @@ function renderCombatUI(){
       offDots[i].style.display = off ? 'block' : 'none';
       if (off){
         const ang = Math.atan2(v.y, v.x);
-        const ex = Math.cos(ang) * (vw/2 - 16);
-        const ey = Math.sin(ang) * (vh/2 - 16);
+        const ex = Math.cos(ang) * (vw/2 - 18);
+        const ey = Math.sin(ang) * (vh/2 - 18);
         offDots[i].style.left = (cx + ex) + 'px';
         offDots[i].style.top = (cy + ey) + 'px';
       }
     } else offDots[i].style.display = 'none';
+  }
+  for (let i=0;i<wsDots.length;i++){
+    const z = zs[i];
+    if (i < zs.length && z){
+      const scale = z.userData.baseScale || 1;
+      _hsV.set(z.position.x, z.position.y + 0.8 + scale * 1.3, z.position.z);
+      const dd = _hsV.distanceTo(camera.position);
+      if (dd < 45){
+        _hsP.copy(_hsV).project(camera);
+        const onScreen = _hsP.z > -1 && _hsP.z < 1 && Math.abs(_hsP.x) < 1.05 && Math.abs(_hsP.y) < 1.05;
+        if (onScreen && losBlocked(_hsV)){
+          wsDots[i].style.display = 'block';
+          wsDots[i].style.left = ((_hsP.x * 0.5 + 0.5) * vw) + 'px';
+          wsDots[i].style.top = ((0.5 - _hsP.y * 0.5) * vh) + 'px';
+        } else wsDots[i].style.display = 'none';
+      } else wsDots[i].style.display = 'none';
+    } else wsDots[i].style.display = 'none';
   }
 }
 
@@ -2883,7 +3004,7 @@ function animate(){
   if (!state.gameOver && state.mapRoot){
     if (state.waveActive){
       state.zombieSpawnTimer += delta * 1000;
-      if (state.zombieSpawnTimer > state.zombieSpawnInterval && state.zombies.length < 20 && state.waveZombiesRemaining > state.zombies.length){
+      if (state.zombieSpawnTimer > state.zombieSpawnInterval && state.zombies.length < 26 && state.waveZombiesRemaining > state.zombies.length){
         spawnZombie();
         state.zombieSpawnTimer = 0;
       }

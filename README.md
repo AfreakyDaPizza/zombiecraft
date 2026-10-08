@@ -14,7 +14,8 @@ First-person zombie survival with building. Stand your ground through escalating
 | MOUSE | Look |
 | CLICK | Shoot |
 | RMB | Sniper scope |
-| R | Reload |
+| F | Skip next wave (when offered) — it doubles the one after |
+| E/R | Reload |
 | 1-6 | Weapons (Rifle, Shotgun, SMG, Sniper, Pistol, Minigun) |
 | 7 | Hammer (upgrade structures) |
 | 8 | Build mode |
