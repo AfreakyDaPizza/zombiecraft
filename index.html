@@ -270,7 +270,7 @@ const state = {
   zombies:[], structures:[], gibs:[], spitBalls:[],
   gameOver:false,
   weapon:'rifle', lastShot:0,
-  fireRates:{ rifle:110, shotgun:500, smg:70, sniper:900, pistol:160, minigun:55 },
+  fireRates:{ rifle:90, shotgun:450, smg:60, sniper:750, pistol:130, minigun:45 },
   damages:{ rifle:1, shotgun:1.5, smg:0.8, sniper:3, pistol:1.3, minigun:0.55 },
   magSizes:{ rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:120 },
   pellets:{ rifle:1, shotgun:8, smg:1, sniper:1, pistol:1, minigun:1 },
@@ -930,14 +930,14 @@ function spawnBloodDecal(x, z){
 
 // ============ ZOMBIE ============
 const ZOMBIE_TYPES = {
-  walker: { hp:3,   speed:[0.022,0.042], scale:[0.98,1.05], damage:8,  score:12, attackCd:900,  shirt:0x3a5a7a },
-  runner: { hp:2,   speed:[0.06,0.08],   scale:[0.9,0.95],  damage:5,  score:16, attackCd:550,  shirt:0x4a4a4a },
-  brute:  { hp:9,   speed:[0.014,0.022], scale:[1.35,1.45], damage:18, score:35, attackCd:1200, shirt:0x2b2b3a },
-  crawler:{ hp:1,   speed:[0.09,0.13],   scale:[0.62,0.7],  damage:4,  score:16, attackCd:450,  shirt:0x553322 },
-  exploder:{hp:2,   speed:[0.06,0.085],  scale:[1.0,1.1],   damage:0,  score:22, attackCd:9e9,  shirt:0x4a3a2a },
-  tank:   { hp:16,  speed:[0.012,0.018], scale:[1.55,1.7],  damage:28, score:70, attackCd:1400, shirt:0x1c1c28 },
-  spitter:{ hp:4,   speed:[0.035,0.05],  scale:[1.0,1.08],  damage:0,  score:30, attackCd:2000, shirt:0x3a5a3a },
-  hound:  { hp:1,   speed:[0.11,0.14],   scale:[0.75,0.85], damage:6,  score:20, attackCd:520,  shirt:0x17171f }
+  walker: { hp:3,   speed:[0.03,0.055], scale:[0.98,1.05], damage:8,  score:12, attackCd:750,  shirt:0x3a5a7a },
+  runner: { hp:2,   speed:[0.085,0.11],  scale:[0.9,0.95],  damage:5,  score:16, attackCd:450,  shirt:0x4a4a4a },
+  brute:  { hp:9,   speed:[0.02,0.03],   scale:[1.35,1.45], damage:18, score:35, attackCd:1000, shirt:0x2b2b3a },
+  crawler:{ hp:1,   speed:[0.12,0.17],   scale:[0.62,0.7],  damage:4,  score:16, attackCd:380,  shirt:0x553322 },
+  exploder:{hp:2,   speed:[0.085,0.115], scale:[1.0,1.1],   damage:0,  score:22, attackCd:9e9,  shirt:0x4a3a2a },
+  tank:   { hp:16,  speed:[0.017,0.025], scale:[1.55,1.7],  damage:28, score:70, attackCd:1150, shirt:0x1c1c28 },
+  spitter:{ hp:4,   speed:[0.05,0.07],   scale:[1.0,1.08],  damage:0,  score:30, attackCd:1600, shirt:0x3a5a3a },
+  hound:  { hp:1,   speed:[0.15,0.19],   scale:[0.75,0.85], damage:6,  score:20, attackCd:420,  shirt:0x17171f }
 };
 
 function createZombie(x, z, y=0, type='walker'){
@@ -1986,7 +1986,7 @@ document.addEventListener('keydown', (e) => {
     }
   }
   if (e.code === 'Space' && state.isGrounded && state.jumpCooldown <= 0){
-    state.velocityY = 7;
+    state.velocityY = 8.2;
     state.isGrounded = false;
     state.jumpCooldown = 0.2;
     sfx('jump');
@@ -2138,7 +2138,7 @@ function updatePlayer(delta){
   const forward = new THREE.Vector3(-Math.sin(state.yaw), 0, -Math.cos(state.yaw));
   const right = new THREE.Vector3(Math.cos(state.yaw), 0, -Math.sin(state.yaw));
   
-  const speed = 5.5 * (state.sprinting ? 1.6 : 1) * delta;
+  const speed = 7.2 * (state.sprinting ? 1.85 : 1) * delta;
   const move = new THREE.Vector3();
   if (state.keys['KeyW']) move.add(forward);
   if (state.keys['KeyS']) move.sub(forward);
@@ -2582,7 +2582,7 @@ function startWave(){
   state.waveActive = true;
   state.waveZombiesTotal = 3 + state.wave * 2;
   state.waveZombiesRemaining = state.waveZombiesTotal;
-  state.zombieSpawnInterval = Math.max(600, 1800 - state.wave * 100);
+  state.zombieSpawnInterval = Math.max(400, 1300 - state.wave * 100);
   state.zombieSpawnTimer = 0;
   sfx('wave');
   const banner = document.getElementById('wave-banner');
@@ -2597,7 +2597,7 @@ function startWave(){
 
 function completeWave(){
   state.waveActive = false;
-  state.waveCooldown = 8;
+  state.waveCooldown = 4;
   state.wave++;
   const bonus = state.wave * 50;
   state.score += bonus;
