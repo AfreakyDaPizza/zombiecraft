@@ -282,17 +282,17 @@ function sfx(n) {
 const state = {
   health:150, maxHealth:150,
   waveTimerShown:-1,
-  magAmmo:{ rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:120, fling:5 },
-  reserve:{ rifle:150, shotgun:60, smg:300, sniper:50, pistol:120, minigun:400, fling:30 },
+  magAmmo:{ rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:150, fling:5 },
+  reserve:{ rifle:150, shotgun:60, smg:300, sniper:50, pistol:120, minigun:600, fling:30 },
   score:0, kills:0,
   zombies:[], structures:[], gibs:[], spitBalls:[], flingBalls:[], puddles:[],
   gameOver:false,
   weapon:'rifle', lastShot:0,
-  fireRates:{ rifle:80, shotgun:430, smg:55, sniper:700, pistol:120, minigun:40, fling:360 },
-  damages:{ rifle:1, shotgun:1.5, smg:0.8, sniper:3, pistol:1.3, minigun:0.55, fling:5 },
-  magSizes:{ rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:120, fling:5 },
+  fireRates:{ rifle:80, shotgun:430, smg:55, sniper:700, pistol:120, minigun:32, fling:360 },
+  damages:{ rifle:1, shotgun:1.5, smg:0.8, sniper:3, pistol:1.3, minigun:0.9, fling:5 },
+  magSizes:{ rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:150, fling:5 },
   pellets:{ rifle:1, shotgun:8, smg:1, sniper:1, pistol:1, minigun:1, fling:1 },
-  spreads:{ rifle:0, shotgun:5, smg:2.5, sniper:0, pistol:1.5, minigun:3.5, fling:0 },
+  spreads:{ rifle:0, shotgun:5, smg:2.5, sniper:0, pistol:1.5, minigun:2.2, fling:0 },
   ownedWeapons:['rifle'],
   zombieSpawnTimer:0, zombieSpawnInterval:1800,
   wave:1, waveZombiesRemaining:0, waveZombiesTotal:0,
@@ -1438,7 +1438,7 @@ function createSlimeZombie(x, z, y=0){
     flash:0, flashMats,
     spawnBaseY:y, spawnRise:0,
     drillMound:null,
-    submerged:0, splitStage:0, corruptBuff:false
+    submerged:0, splitStage:0, corruptBuff:false, fragment:false
   };
   scene.add(g);
   return g;
@@ -1493,16 +1493,17 @@ function updatePuddles(delta){
 
 function killZombie(z, hitPos, forceDir, scoreMult=1, source='player'){
   const ud = z.userData || {};
+  const isFragment = !!ud.fragment;
   const pos = (hitPos || z.position).clone();
   const corpsePos = z.position.clone().add(new THREE.Vector3(0, 1, 0));
   const posAt1 = corpsePos.clone();
-  sfx('zdie');
-  spawnBlood(pos, 50, 1.5, false);
-  spawnGibs(posAt1, 8);
+  if (!isFragment) sfx('zdie');
+  spawnBlood(pos, isFragment ? 20 : 50, 1.5, false);
+  spawnGibs(posAt1, isFragment ? 3 : 8);
   spawnBloodDecal(z.position.x, z.position.z);
-  if (forceDir) createCorpse(z, corpsePos, forceDir);
+  if (forceDir && !isFragment) createCorpse(z, corpsePos, forceDir);
   if (z.userData.drillMound) z.userData.drillMound.visible = false;
-  // slime: split into 2 then 4 smaller slimes
+  // slime: split into 2 then 4 smaller slimes (they're free fragments, not new kills)
   if (ud.type === 'slime' && ud.splitStage < 2 && state.zombies.length < 55){
     const kids = ud.splitStage === 0 ? 2 : 4;
     const gy = Math.max(getGroundY(z.position.x, z.position.z, 0), 0);
@@ -1511,6 +1512,7 @@ function killZombie(z, hitPos, forceDir, scoreMult=1, source='player'){
       const sx = z.position.x + Math.sin(a) * 1.4;
       const sz = z.position.z + Math.cos(a) * 1.4;
       const kid = createZombie(sx, sz, gy + 0.3, 'slime');
+      kid.userData.fragment = true;
       kid.userData.splitStage = ud.splitStage + 1;
       kid.userData.health = kid.userData.maxHealth = Math.max(1, Math.round(ud.maxHealth * (ud.splitStage === 0 ? 0.45 : 0.35)));
       kid.userData.scoreValue = (ud.splitStage === 0 ? 4 : 2);
@@ -1524,12 +1526,13 @@ function killZombie(z, hitPos, forceDir, scoreMult=1, source='player'){
     addKill('🟢 Slime split!');
   }
   // corruption: leave a buffing puddle behind
-  if (ud.type === 'corrupt'){
+  if (ud.type === 'corrupt' && !isFragment){
     spawnCorruptPuddle(z.position.x, z.position.z, Math.max(getGroundY(z.position.x, z.position.z, 0), 0));
   }
   scene.remove(z);
   const idx = state.zombies.indexOf(z);
   if (idx !== -1) state.zombies.splice(idx, 1);
+  if (isFragment) return; // free split piece — not a kill, no reward, no wave progress
   const sv = (ud.scoreValue || 10) * scoreMult;
   state.score += Math.round(sv);
   state.kills++;
@@ -3298,7 +3301,7 @@ function pickZombieType(){
   if (w >= 6 && r < 0.15) return 'witch';
   if (w >= 6 && r < 0.21) return 'golem';
   if (w >= 5 && r < 0.28) return 'corrupt';
-  if (w >= 4 && r < 0.35) return 'slime';
+  if (w >= 7 && r < 0.22) return 'slime';
   if (w >= 7 && r < 0.41) return 'tank';
   if (w >= 5 && r < 0.48) return 'brute';
   if (w >= 4 && r < 0.56) return 'hound';
