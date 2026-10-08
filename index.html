@@ -184,8 +184,9 @@
   <div class="slot" data-slot="3"><span class="key">4</span><span class="icon">🎯</span>SNIPER</div>
   <div class="slot" data-slot="4"><span class="key">5</span><span class="icon">🔫</span>PISTOL</div>
   <div class="slot" data-slot="5"><span class="key">6</span><span class="icon">⚙️</span>MINIGUN</div>
-  <div class="slot" data-slot="6"><span class="key">7</span><span class="icon">🔨</span>HAMMER</div>
-  <div class="slot" data-slot="7"><span class="key">8</span><span class="icon">🪵</span>BUILD<span class="count" id="struct-count">0</span></div>
+  <div class="slot" data-slot="6"><span class="key">7</span><span class="icon">🌀</span>FLING</div>
+  <div class="slot" data-slot="7"><span class="key">8</span><span class="icon">🔨</span>HAMMER</div>
+  <div class="slot" data-slot="8"><span class="key">9</span><span class="icon">🪵</span>BUILD<span class="count" id="struct-count">0</span></div>
 </div>
 
 <div id="crosshair">
@@ -281,17 +282,17 @@ function sfx(n) {
 const state = {
   health:150, maxHealth:150,
   waveTimerShown:-1,
-  magAmmo:{ rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:120 },
-  reserve:{ rifle:150, shotgun:60, smg:300, sniper:50, pistol:120, minigun:400 },
+  magAmmo:{ rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:120, fling:5 },
+  reserve:{ rifle:150, shotgun:60, smg:300, sniper:50, pistol:120, minigun:400, fling:30 },
   score:0, kills:0,
-  zombies:[], structures:[], gibs:[], spitBalls:[],
+  zombies:[], structures:[], gibs:[], spitBalls:[], flingBalls:[], puddles:[],
   gameOver:false,
   weapon:'rifle', lastShot:0,
-  fireRates:{ rifle:90, shotgun:450, smg:60, sniper:750, pistol:130, minigun:45 },
-  damages:{ rifle:1, shotgun:1.5, smg:0.8, sniper:3, pistol:1.3, minigun:0.55 },
-  magSizes:{ rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:120 },
-  pellets:{ rifle:1, shotgun:8, smg:1, sniper:1, pistol:1, minigun:1 },
-  spreads:{ rifle:0, shotgun:5, smg:2.5, sniper:0, pistol:1.5, minigun:3.5 },
+  fireRates:{ rifle:80, shotgun:430, smg:55, sniper:700, pistol:120, minigun:40, fling:360 },
+  damages:{ rifle:1, shotgun:1.5, smg:0.8, sniper:3, pistol:1.3, minigun:0.55, fling:5 },
+  magSizes:{ rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:120, fling:5 },
+  pellets:{ rifle:1, shotgun:8, smg:1, sniper:1, pistol:1, minigun:1, fling:1 },
+  spreads:{ rifle:0, shotgun:5, smg:2.5, sniper:0, pistol:1.5, minigun:3.5, fling:0 },
   ownedWeapons:['rifle'],
   zombieSpawnTimer:0, zombieSpawnInterval:1800,
   wave:1, waveZombiesRemaining:0, waveZombiesTotal:0,
@@ -820,6 +821,46 @@ const minigun = new THREE.Group();
 minigun.visible = false;
 weaponRig.add(minigun);
 
+// FLING THROWER — gravity cannon
+const fling = new THREE.Group();
+{
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.5, 12), gunAccent);
+  body.rotation.z = Math.PI/2; body.position.set(0.28,-0.25,-0.6); fling.add(body);
+  const bodyDark = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.14, 0.2, 12), gunDark);
+  bodyDark.rotation.z = Math.PI/2; bodyDark.position.set(0.28,-0.25,-0.42); fling.add(bodyDark);
+  const coils = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.03, 8, 20), gunIron);
+  coils.rotation.y = Math.PI/2; coils.position.set(0.28,-0.25,-0.7); fling.add(coils);
+  const funnel = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.24, 12), gunAccent);
+  funnel.rotation.z = -Math.PI/2; funnel.rotation.y = Math.PI/2;
+  funnel.position.set(0.28,-0.25,-0.95); fling.add(funnel);
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.3, 10), gunIron);
+  barrel.rotation.z = Math.PI/2; barrel.position.set(0.28,-0.25,-1.25); fling.add(barrel);
+  const coreMat = new THREE.MeshStandardMaterial({ color:0x44ff22, emissive:0x33ff11, emissiveIntensity:2 });
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), coreMat);
+  core.position.set(0.28,-0.25,-0.7); fling.add(core);
+  for (let rng=0;rng<2;rng++){
+    const ringCoil = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.02, 6, 16), gunGold);
+    ringCoil.rotation.y = Math.PI/2 + rng*0.4;
+    ringCoil.position.set(0.28,-0.25,-0.55 - rng*0.18); fling.add(ringCoil);
+  }
+  const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.3, 8), gunDark);
+  tank.rotation.z = Math.PI/2; tank.position.set(0.28,-0.42,-0.75); fling.add(tank);
+  const hose = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.4, 6), gunWear);
+  hose.position.set(0.28,-0.45,-0.6); hose.rotation.x = 0.9; fling.add(hose);
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.2, 0.1), gunWear);
+  grip.position.set(0.28,-0.4,-0.32); grip.rotation.x = 0.25; fling.add(grip);
+  const stock = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 0.2), gunMat);
+  stock.position.set(0.28,-0.27,-0.12); fling.add(stock);
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.17, 0.04), gunRed);
+  pad.position.set(0.28,-0.27,-0.02); fling.add(pad);
+  const sightPost = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.06, 0.03), gunDark);
+  sightPost.position.set(0.28,-0.12,-0.7); fling.add(sightPost);
+  const bead = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), coreMat);
+  bead.position.set(0.28,-0.12,-0.95); fling.add(bead);
+}
+fling.visible = false;
+weaponRig.add(fling);
+
 // HAMMER — proper hammer shape
 const hammer = new THREE.Group();
 {
@@ -1040,7 +1081,13 @@ const ZOMBIE_TYPES = {
   tank:   { hp:28,  speed:[0.017,0.025], scale:[1.95,2.25], damage:36, score:70, attackCd:1150, shirt:0x1c1c28 },
   spitter:{ hp:6,   speed:[0.05,0.07],   scale:[1.0,1.08],  damage:0,  score:30, attackCd:1600, shirt:0x3a5a3a },
   hound:  { hp:2,   speed:[0.15,0.19],   scale:[0.75,0.85], damage:8,  score:20, attackCd:420,  shirt:0x17171f },
-  boss:   { hp:60,  speed:[0.008,0.012], scale:[2.4,2.9],   damage:25, score:300, attackCd:1800, shirt:0x1a0520 }
+  boss:   { hp:60,  speed:[0.008,0.012], scale:[2.4,2.9],   damage:25, score:300, attackCd:1800, shirt:0x1a0520 },
+  witch:  { hp:10,  speed:[0.035,0.05],  scale:[1.0,1.1],   damage:6,  score:45, attackCd:2600, shirt:0x2a1238 },
+  driller:{ hp:9,   speed:[0.045,0.06],  scale:[1.0,1.1],   damage:6,  score:55, attackCd:1100, shirt:0x3a3a2a },
+  golem:  { hp:55,  speed:[0.016,0.022], scale:[2.0,2.4],   damage:3,  score:80, attackCd:1000, shirt:0x55555f },
+  zhog:   { hp:2,   speed:[0.19,0.24],   scale:[1.3,1.5],   damage:20, score:60, attackCd:700,  shirt:0x3a2440 },
+  corrupt:{ hp:7,   speed:[0.06,0.08],   scale:[1.0,1.1],   damage:10, score:40, attackCd:800,  shirt:0x1c4a1c },
+  slime:  { hp:5,   speed:[0.09,0.12],   scale:[0.9,1.0],   damage:6,  score:30, attackCd:600,  shirt:0x2a7a2a }
 };
 
 function createZombie(x, z, y=0, type='walker'){
@@ -1184,6 +1231,90 @@ function createZombie(x, z, y=0, type='walker'){
     legPivots.push({ hip:hipP, knee:kneeP });
   });
 
+  // WITCH: dark robe + hood
+  if (type === 'witch'){
+    const robeMat = new THREE.MeshStandardMaterial({ color:0x1a0f30, roughness:0.92 });
+    const robe = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.5, 10), robeMat);
+    robe.position.set(0, 0.55, 0); robe.scale.set(1, 0.78, 0.8);
+    robe.castShadow = true; g.add(robe);
+    const hood = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.55, 8), robeMat);
+    hood.position.set(0, 1.2, 0.02); hood.rotation.x = 0.2; g.add(hood);
+    const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.7, 6), mats.wood);
+    staff.position.set(0.5, 0.85, 0.1); g.add(staff);
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8),
+      new THREE.MeshStandardMaterial({ color:0xaa55ff, emissive:0x9933ff, emissiveIntensity:2 }));
+    orb.position.set(0.5, 1.75, 0.1); g.add(orb);
+    flashMats.push(orb.material);
+  }
+  if (type === 'zhog'){
+    // GORE HOG mount — oversized boar body under the rider
+    const hogMat = new THREE.MeshStandardMaterial({ color:0x5a3a2a, roughness:0.9 });
+    const hogBody = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 10), hogMat);
+    hogBody.scale.set(1.5, 0.9, 2.1); hogBody.position.set(0, 0.85, 0.05);
+    hogBody.castShadow = true; g.add(hogBody);
+    const hogHead = new THREE.Mesh(new THREE.SphereGeometry(0.48, 10, 8), hogMat);
+    hogHead.scale.set(1.1, 0.9, 0.9); hogHead.position.set(0, 0.95, 1.2);
+    hogHead.castShadow = true; g.add(hogHead);
+    const snout = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), skinMat);
+    snout.scale.set(1.6, 1, 0.7); snout.position.set(0, 0.85, 1.62); g.add(snout);
+    for (const sx of [-1,1]){
+      const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.22, 6), mats.eyeGlow);
+      tusk.position.set(sx*0.28, 0.95, 1.62); tusk.rotation.x = 0.5; tusk.rotation.z = sx*0.4; g.add(tusk);
+      const hogEar = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.2, 5), hogMat);
+      hogEar.position.set(sx*0.35, 1.6, 0.85); g.add(hogEar);
+    }
+    // rider sits on top
+    const riderTorso = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.3), shirtMat);
+    riderTorso.position.set(0, 1.75, -0.1); riderTorso.castShadow = true; g.add(riderTorso);
+    const riderHead = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.3, 0.26), skinMat);
+    riderHead.position.set(0, 2.1, -0.08); g.add(riderHead);
+    const rEye = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,0.04), mats.eyeGlow);
+    rEye.position.set(0, 2.18, 0.07); g.add(rEye);
+    // strap
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.9, 0.04), gunDark);
+    strap.position.set(0.22, 1.5, 0); g.add(strap);
+  }
+  if (type === 'golem'){
+    const stoneMat = new THREE.MeshStandardMaterial({ color:0x5a5a66, roughness:0.95, metalness:0.15 });
+    const pauldron = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.32, 0.52), stoneMat);
+    pauldron.position.set(0, 0.78, 0); pauldron.castShadow = true; torso.add(pauldron);
+    const backSlab = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.75, 0.28), stoneMat);
+    backSlab.position.set(0, 0.52, -0.35); backSlab.castShadow = true; torso.add(backSlab);
+    const facePlate = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.3, 0.1), stoneMat);
+    facePlate.position.set(0, 0.16, 0.22); head.add(facePlate);
+    const gemMat = new THREE.MeshStandardMaterial({ color:0x5a1a1a, emissive:0xff3311, emissiveIntensity:1.6 });
+    const gem = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.18), gemMat);
+    gem.position.set(0, 0.45, 0.32); gem.castShadow = true; torso.add(gem);
+    flashMats.push(gemMat);
+  }
+  if (type === 'slime'){
+    const blobMat = new THREE.MeshStandardMaterial({ color:0x2a8a2a, transparent:true, opacity:0.85, roughness:0.35 });
+    const blob = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 10), blobMat);
+    blob.position.set(0, 0.7, 0); blob.scale.set(1.15, 0.8, 1.1); blob.castShadow = true; g.add(blob);
+    for (let k=0;k<3;k++){
+      const drip = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 6), blobMat);
+      drip.position.set((Math.random()-0.5)*0.5, 0.22, (Math.random()-0.5)*0.5); g.add(drip);
+    }
+    flashMats.push(blobMat);
+  }
+  if (type === 'corrupt'){
+    const tendrilMat = new THREE.MeshStandardMaterial({ color:0x1c3a1c, emissive:0x22ff44, emissiveIntensity:0.7, roughness:0.6 });
+    for (let k=0;k<6;k++){
+      const tend = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.42, 5), tendrilMat);
+      tend.position.set((Math.random()-0.5)*0.4, 0.35+Math.random()*0.4, (Math.random()-0.5)*0.4);
+      tend.rotation.set(Math.random()*0.5, Math.random()*Math.PI, Math.random()*0.5);
+      torso.add(tend);
+    }
+    flashMats.push(tendrilMat);
+  }
+  let drillMound = null;
+  if (type === 'driller'){
+    drillMound = new THREE.Mesh(new THREE.ConeGeometry(0.6, 0.55, 8),
+      new THREE.MeshStandardMaterial({ color:0x3a2a1a, roughness:1 }));
+    drillMound.position.set(0, 1.9, 0); drillMound.scale.set(1, 0.55, 1); drillMound.castShadow = true;
+    g.add(drillMound);
+  }
+
   const baseScale = arch.scale[0] + Math.random()*(arch.scale[1]-arch.scale[0]);
   g.scale.setScalar(baseScale);
   g.position.set(x, y, z);
@@ -1222,7 +1353,9 @@ function createZombie(x, z, y=0, type='walker'){
     leftKnee:legPivots[0].knee, rightKnee:legPivots[1].knee,
     head, jaw,
     flash:0, flashMats,
-    spawnBaseY:y, spawnRise:0
+    spawnBaseY:y, spawnRise:0,
+    drillMound,
+    submerged:0, splitStage:0, corruptBuff:false
   };
   scene.add(g);
   return g;
@@ -1230,6 +1363,109 @@ function createZombie(x, z, y=0, type='walker'){
 
 function zombieHitFlash(z){
   z.userData.flash = 0.2;
+}
+
+function zombieTakeDamage(z, dmg){
+  const ud = z.userData;
+  if (ud.corruptBuff) dmg *= 0.7;
+  ud.health -= dmg;
+  zombieHitFlash(z);
+  return ud.health;
+}
+
+function spawnCorruptPuddle(x, z, gy){
+  const r = 3.2;
+  const mat = new THREE.MeshStandardMaterial({ color:0x1e0a30, emissive:0x38ff22, emissiveIntensity:0.8, transparent:true, opacity:0.55, roughness:0.5 });
+  const mesh = new THREE.Mesh(new THREE.CircleGeometry(r, 18), mat);
+  mesh.rotation.x = -Math.PI/2;
+  mesh.position.set(x, gy + 0.04, z);
+  scene.add(mesh);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(r-0.12, r+0.02, 18),
+    new THREE.MeshBasicMaterial({ color:0x44ff22, transparent:true, opacity:0.9 }));
+  ring.rotation.x = -Math.PI/2;
+  ring.position.set(x, gy + 0.05, z);
+  scene.add(ring);
+  state.puddles.push({ mesh, ring, x, z, y:gy, r, t:20 });
+  if (state.puddles.length > 6){
+    const old = state.puddles.shift();
+    scene.remove(old.mesh); scene.remove(old.ring);
+  }
+}
+
+function updatePuddles(delta){
+  for (let i = state.puddles.length - 1; i >= 0; i--){
+    const p = state.puddles[i];
+    p.t -= delta;
+    const pulse = 0.6 + Math.sin(p.t * 6) * 0.4;
+    p.mesh.material.emissiveIntensity = 0.6 + pulse * 0.4;
+    if (p.t <= 0){
+      scene.remove(p.mesh); scene.remove(p.ring);
+      state.puddles.splice(i, 1);
+    } else {
+      // swirling ring rotation
+      p.ring.rotation.z += delta * 1.5;
+    }
+  }
+}
+
+function killZombie(z, hitPos, forceDir, scoreMult=1, source='player'){
+  const ud = z.userData || {};
+  const pos = (hitPos || z.position).clone();
+  const corpsePos = z.position.clone().add(new THREE.Vector3(0, 1, 0));
+  const posAt1 = corpsePos.clone();
+  sfx('zdie');
+  spawnBlood(pos, 50, 1.5, false);
+  spawnGibs(posAt1, 8);
+  spawnBloodDecal(z.position.x, z.position.z);
+  if (forceDir) createCorpse(z, corpsePos, forceDir);
+  if (z.userData.drillMound) z.userData.drillMound.visible = false;
+  // slime: split into 2 then 4 smaller slimes
+  if (ud.type === 'slime' && ud.splitStage < 2 && state.zombies.length < 55){
+    const kids = ud.splitStage === 0 ? 2 : 4;
+    const gy = Math.max(getGroundY(z.position.x, z.position.z, 0), 0);
+    for (let k = 0; k < kids; k++){
+      const sx = z.position.x + (Math.random()-0.5)*1.6;
+      const sz = z.position.z + (Math.random()-0.5)*1.6;
+      const kid = createZombie(sx, sz, gy + 0.3, 'slime');
+      kid.userData.splitStage = ud.splitStage + 1;
+      const kidScale = kid.userData.baseScale * (ud.splitStage === 0 ? 0.55 : 0.42);
+      kid.userData.health = kid.userData.maxHealth = Math.max(1, Math.round(ud.maxHealth * (ud.splitStage === 0 ? 0.45 : 0.35)));
+      kid.userData.scoreValue = (ud.splitStage === 0 ? 4 : 2);
+      kid.userData.baseScale = kidScale;
+      kid.scale.setScalar(kidScale);
+      kid.userData.spawnRise = 1;
+      kid.userData.fling = { vx:(Math.random()-0.5)*4, vy:5 + Math.random()*2, vz:(Math.random()-0.5)*4 };
+      state.zombies.push(kid);
+    }
+    addKill('🟢 Slime split!');
+  }
+  // corruption: leave a buffing puddle behind
+  if (ud.type === 'corrupt'){
+    spawnCorruptPuddle(z.position.x, z.position.z, Math.max(getGroundY(z.position.x, z.position.z, 0), 0));
+  }
+  scene.remove(z);
+  const idx = state.zombies.indexOf(z);
+  if (idx !== -1) state.zombies.splice(idx, 1);
+  const sv = (ud.scoreValue || 10) * scoreMult;
+  state.score += Math.round(sv);
+  state.kills++;
+  state.waveZombiesRemaining--;
+  const mult = Math.max(1, Math.round((ud.scoreValue || 10) / 20));
+  const woodDrop = (1 + Math.floor(Math.random()*2)) * mult;
+  state.wood += woodDrop;
+  const scrappy = (Math.random() < 0.5 ? 1 : 0) * mult;
+  state.scrap += scrappy;
+  if (source === 'turret'){
+    const ammoDrop = (4 + Math.floor(Math.random()*4)) * mult;
+    for (const w in state.reserve) state.reserve[w] += Math.max(1, Math.floor(ammoDrop/3));
+    addKill(`[TURRET] 💥 ${ud.type||'zombie'} 🪵+${woodDrop} ⚙️+${scrappy} 🔫+${ammoDrop}`);
+  } else {
+    const ammoDrop = (5 + Math.floor(Math.random()*5)) * mult;
+    state.reserve[state.weapon] += ammoDrop;
+    addKill(`🪵+${woodDrop} ⚙️+${scrappy} 🔫+${ammoDrop}${ud.type !== 'walker' ? ' · ' + ud.type : ''}${scoreMult > 1 ? ' 💀' : ''}`);
+  }
+  updateHUD();
+  if (state.waveZombiesRemaining <= 0) completeWave();
 }
 
 function updateSpitBalls(delta){
@@ -2127,7 +2363,7 @@ document.addEventListener('keydown', (e) => {
     }
   }
   if (e.code === 'Space' && state.isGrounded && state.jumpCooldown <= 0){
-    state.velocityY = 8.2;
+    state.velocityY = 8.6;
     state.isGrounded = false;
     state.jumpCooldown = 0.2;
     sfx('jump');
@@ -2164,6 +2400,7 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'Digit6') switchWeapon(5);
   if (e.code === 'Digit7') switchWeapon(6);
   if (e.code === 'Digit8') switchWeapon(7);
+  if (e.code === 'Digit9') switchWeapon(8);
   if (e.code === 'Escape' && state.activePanel) togglePanel(state.activePanel);
 });
 document.addEventListener('keyup', (e) => { state.keys[e.code] = false; });
@@ -2285,7 +2522,7 @@ function updatePlayer(delta){
   const forward = new THREE.Vector3(-Math.sin(state.yaw), 0, -Math.cos(state.yaw));
   const right = new THREE.Vector3(Math.cos(state.yaw), 0, -Math.sin(state.yaw));
   
-  const speed = 7.2 * (state.sprinting ? 1.85 : 1) * delta;
+  const speed = 8.2 * (state.sprinting ? 1.9 : 1) * delta;
   const move = new THREE.Vector3();
   if (state.keys['KeyW']) move.add(forward);
   if (state.keys['KeyS']) move.sub(forward);
@@ -2425,6 +2662,18 @@ function shoot(){
   updateHUD();
   sfx(state.weapon);
   
+  // Fling thrower — lobs a gravity orb that hurls zombies instead of hitscan
+  if (w === 'fling'){
+    muzzleFlash.intensity = 4;
+    setTimeout(() => muzzleFlash.intensity = 0, 50);
+    flashSprite.visible = true;
+    flashSprite.scale.setScalar(0.9);
+    flashTimer = 0.06;
+    weaponKick = 0.12;
+    fireFling();
+    return;
+  }
+  
   muzzleFlash.intensity = state.weapon === 'shotgun' ? 6 : 3.5;
   setTimeout(() => muzzleFlash.intensity = 0, 50);
   flashSprite.visible = true;
@@ -2468,34 +2717,13 @@ function shoot(){
         hitSet.add(zg);
         const headshot = hit.point.y > zg.position.y + 1.5*(zg.userData.baseScale||1);
         const dmgDealt = dmg * (headshot ? 2 : 1);
-        zg.userData.health -= dmgDealt;
-        zombieHitFlash(zg);
-        sfx('hit');
-        spawnBlood(hit.point, headshot ? 30 : 15, headshot ? 1.2 : 0.7, headshot);
-        if (zg.userData.health <= 0){
+        if (zombieTakeDamage(zg, dmgDealt) <= 0){
           const fd = new THREE.Vector3();
           camera.getWorldDirection(fd); fd.y = 0;
-          sfx('zdie');
-          spawnBlood(hit.point, 50, 1.5, headshot);
-          spawnGibs(zg.position.clone().add(new THREE.Vector3(0,1,0)), 8);
-          spawnBloodDecal(zg.position.x, zg.position.z);
-          createCorpse(zg, zg.position.clone().add(new THREE.Vector3(0,1,0)), fd);
-          scene.remove(zg);
-          const idx = state.zombies.indexOf(zg);
-          if (idx !== -1) state.zombies.splice(idx, 1);
-          const sv = zg.userData.scoreValue || 10;
-          state.score += headshot ? Math.round(sv*2.5) : sv;
-          state.kills++;
-          state.waveZombiesRemaining--;
-          const mult = Math.max(1, Math.round((zg.userData.scoreValue || 10) / 20));
-          const woodDrop = (1 + Math.floor(Math.random()*2)) * mult;
-          state.wood += woodDrop;
-          state.scrap += (Math.random() < 0.5 ? 1 : 0) * mult;
-          const ammoDrop = (5 + Math.floor(Math.random()*5)) * mult;
-          state.reserve[state.weapon] += ammoDrop;
-          addKill(`🪵+${woodDrop} 🔫+${ammoDrop}${headshot?' 💀':''}`);
-          updateHUD();
-          if (state.waveZombiesRemaining <= 0) completeWave();
+          killZombie(zg, hit.point, fd, headshot ? 2.5 : 1);
+        } else {
+          sfx('hit');
+          spawnBlood(hit.point, headshot ? 30 : 15, headshot ? 1.2 : 0.7, headshot);
         }
       }
     }
@@ -2503,6 +2731,72 @@ function shoot(){
   
   state.hitMarkerTimer = 0.12;
   document.getElementById('hitmarker').style.opacity = '1';
+}
+
+// ============ FLING THROWER ============
+function fireFling(){
+  const origin = new THREE.Vector3();
+  camera.getWorldPosition(origin);
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8),
+    new THREE.MeshStandardMaterial({ color:0x77ff44, emissive:0x33ff11, emissiveIntensity:2.5 }));
+  ball.position.copy(origin).add(dir.clone().multiplyScalar(1.4));
+  ball.position.y -= 0.12;
+  scene.add(ball);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.03, 8, 20),
+    new THREE.MeshBasicMaterial({ color:0x88ff44, transparent:true, opacity:0.9 }));
+  ball.add(ring);
+  state.flingBalls.push({ mesh:ball, dir:dir.clone(), t:1.1 });
+  if (state.flingBalls.length > 8){ const old = state.flingBalls.shift(); scene.remove(old.mesh); }
+  sfx('wave');
+}
+
+function detonateFling(center){
+  spawnBlood(center.clone().add(new THREE.Vector3(0,0.4,0)), 40, 1.4, false);
+  const flash = new THREE.PointLight(0x88ff44, 12, 20);
+  flash.position.copy(center); scene.add(flash);
+  setTimeout(() => scene.remove(flash), 140);
+  const R = 6.2;
+  let flung = 0;
+  for (const z of state.zombies){
+    const d = z.position.distanceTo(center);
+    if (d < R){
+      zombieTakeDamage(z, 5 + (R - d));
+      const dir = z.position.clone().sub(center);
+      dir.y = Math.abs(dir.y) + 1.2;
+      if (dir.lengthSq() < 0.01) dir.set(0, 1.2, 0);
+      dir.normalize().multiplyScalar(11 + (R - d) * 2.4);
+      z.userData.fling = { vx:dir.x, vy:dir.y, vz:dir.z };
+      flung++;
+    }
+  }
+  addKill('🌀 Fling! ' + flung + ' zombie' + (flung === 1 ? '' : 's') + ' tossed');
+}
+
+function updateFlingBalls(delta){
+  for (let i = state.flingBalls.length - 1; i >= 0; i--){
+    const b = state.flingBalls[i];
+    b.t -= delta;
+    const p = b.mesh.position;
+    p.addScaledVector(b.dir, delta * 26);
+    b.mesh.rotation.x += delta * 12;
+    b.mesh.rotation.z += delta * 7;
+    let detonate = false;
+    if (b.t <= 0) detonate = true;
+    const gy = Math.max(getGroundY(p.x, p.z, 0), 0);
+    if (p.y < gy + 0.35) detonate = true;
+    if (!detonate){
+      for (const z of state.zombies){
+        if (p.distanceTo(z.position) < 1.4){ detonate = true; break; }
+      }
+    }
+    if (detonate){
+      detonateFling(p);
+      scene.remove(b.mesh);
+      state.flingBalls.splice(i, 1);
+    }
+  }
 }
 
 function addKill(text){
@@ -2525,7 +2819,63 @@ function updateZombies(delta){
     const dy = pp.y - zp.y;
 
     updateZombieAnim(z, delta);
-    
+
+    // Fling physics — zombies hurled by the fling thrower tumble through the air
+    if (z.userData.fling){
+      const fl = z.userData.fling;
+      fl.vy -= delta * 15;
+      zp.x += fl.vx * delta;
+      zp.y += fl.vy * delta;
+      zp.z += fl.vz * delta;
+      z.rotation.x += fl.vx * delta * 5;
+      z.rotation.z += fl.vz * delta * 5;
+      const gyF = Math.max(getGroundY(zp.x, zp.z, 0), 0);
+      if (zp.y <= gyF + 0.1 && fl.vy <= 0){
+        const impact = Math.round(Math.max(0, -fl.vy) * 7);
+        z.userData.fling = null;
+        zp.y = gyF + Math.abs(Math.sin(z.userData.walkPhase || 0)) * 0.05;
+        z.rotation.x = 0; z.rotation.z = 0;
+        spawnBlood(zp.clone().add(new THREE.Vector3(0, 0.8, 0)), 14, 1, false);
+        zombieHitFlash(z);
+        z.userData.lastAttack = performance.now() + 300;
+        sfx('zdie');
+        if (impact > 0 && zombieTakeDamage(z, impact) <= 0){
+          killZombie(z, zp.clone().add(new THREE.Vector3(0, 0.5, 0)), null);
+          continue;
+        }
+      }
+      continue;
+    }
+
+    // DRILLER — burrows underground and bursts up next to you
+    if (z.userData.type === 'driller'){
+      const gyD = Math.max(getGroundY(zp.x, zp.z, 0), 0);
+      if (!z.userData.submerged && distXZ < 16 && distXZ > 2.6){
+        z.userData.submerged = 1;
+        spawnBlood(zp.clone().add(new THREE.Vector3(0, 0.3, 0)), 14, 0.8, false);
+      }
+      if (z.userData.submerged){
+        if (z.userData.drillMound) z.userData.drillMound.visible = true;
+        if (distXZ > 0.1){
+          const spdU = 0.16 * delta * 32;
+          zp.x += (dx / distXZ) * spdU;
+          zp.z += (dz / distXZ) * spdU;
+        }
+        zp.y = gyD - 1.7;
+        z.rotation.y = Math.atan2(dx, dz);
+        if (distXZ < 2.6){
+          z.userData.submerged = 0;
+          if (z.userData.drillMound) z.userData.drillMound.visible = false;
+          zp.y = gyD + Math.abs(Math.sin(z.userData.walkPhase || 0)) * 0.05;
+          spawnBlood(zp.clone().add(new THREE.Vector3(0, 0.5, 0)), 24, 1.2, false);
+          sfx('hammer');
+          if (!state.gameOver) damagePlayer(18);
+          z.userData.lastAttack = performance.now();
+        }
+        continue;
+      }
+    }
+
     // Ground zombie chase with steering + wall bashing
     if (distXZ > 0.1){
       // stay put (still underground) until spawn-rise completes
@@ -2622,6 +2972,41 @@ function updateZombies(delta){
       z.position.y = zp.y + Math.abs(Math.sin(wp)) * 0.05;
     }
 
+    // WITCH — conjures fresh undead around her
+    if (z.userData.type === 'witch' && distXZ > 1 && distXZ < 30 && state.waveActive && state.zombies.length < 34){
+      const now = performance.now();
+      if (now - (z.userData.lastAttack || 0) > z.userData.attackCd){
+        z.userData.lastAttack = now;
+        const n = Math.random() < 0.45 ? 2 : 1;
+        for (let k = 0; k < n; k++){
+          const sa = Math.random() * Math.PI * 2;
+          const sx = zp.x + Math.sin(sa) * 2.2, sz = zp.z + Math.cos(sa) * 2.2;
+          const kid = createZombie(sx, sz, 0, Math.random() < 0.5 ? 'walker' : 'runner');
+          kid.userData.summoned = true;
+          kid.userData.spawnRise = 1;
+          kid.userData.scoreValue = 2;
+          state.zombies.push(kid);
+        }
+        addKill('🧙 Witch summons the dead!');
+        sfx('wave');
+      }
+    }
+
+    // Corruption puddle: zombies inside regen and shrug off damage
+    let inPuddle = false;
+    for (const p of state.puddles){
+      const pdx = zp.x - p.x, pdz = zp.z - p.z;
+      if (pdx*pdx + pdz*pdz < p.r*p.r){ inPuddle = true; break; }
+    }
+    if (inPuddle){
+      z.userData.corruptBuff = true;
+      z.userData.health = Math.min(z.userData.maxHealth, z.userData.health + 1.6 * delta);
+      const m0 = z.userData.flashMats && z.userData.flashMats[0];
+      if (m0) m0.emissive.setRGB(0, 0.35 + Math.sin(Date.now() * 0.01) * 0.2, 0.1);
+    } else {
+      z.userData.corruptBuff = false;
+    }
+
     // Separation: zombies shove each other apart instead of stacking
     for (let j = state.zombies.length - 1; j >= 0; j--){
       if (j === i) continue;
@@ -2679,16 +3064,8 @@ function updateZombies(delta){
         if (Math.sqrt(sdx*sdx + sdz*sdz) < 1.2){
           z.userData.health = 0;
           zombieHitFlash(z);
-          if (z.userData.health <= 0){
-            spawnBlood(zp.clone().add(new THREE.Vector3(0,1,0)), 30, 1, false);
-            spawnBloodDecal(zp.x, zp.z);
-            scene.remove(z); state.zombies.splice(i,1);
-            state.score += z.userData.scoreValue;
-            state.waveZombiesRemaining--;
-            updateHUD();
-            if (state.waveZombiesRemaining <= 0) completeWave();
-            break;
-          }
+          killZombie(z, zp.clone().add(new THREE.Vector3(0,1,0)), null);
+          break;
         }
       }
     }
@@ -2712,27 +3089,10 @@ function updateTurrets(delta){
       if (now - t.userData.lastFire > 650 / t.userData.level){
         t.userData.lastFire = now;
         spawnBlood(near.position.clone().add(new THREE.Vector3(0,1,0)), 5, 0.5, false);
-        near.userData.health -= Math.max(1, Math.floor(t.userData.level * 0.6));
-        zombieHitFlash(near);
-        beep(400, 0.05, 'square', 0.08);
-        if (near.userData.health <= 0){
-          spawnBlood(near.position.clone().add(new THREE.Vector3(0,1,0)), 30, 1, false);
-          spawnBloodDecal(near.position.x, near.position.z);
-          scene.remove(near);
-          const idx = state.zombies.indexOf(near);
-          if (idx !== -1) state.zombies.splice(idx, 1);
-          state.waveZombiesRemaining--;
-          state.score += near.userData.scoreValue || 15;
-          state.kills++;
-          const mult = Math.max(1, Math.round((near.userData.scoreValue || 15) / 20));
-          const woodDrop = mult;
-          state.wood += woodDrop;
-          state.scrap += mult;
-          const ammoDrop = (4 + Math.floor(Math.random()*4)) * mult;
-          for (const w in state.reserve) state.reserve[w] += Math.max(1, Math.floor(ammoDrop/3));
-          addKill(`[TURRET] 💥 🪵+${woodDrop} ⚙️+${mult} 🔫+${ammoDrop}`);
-          updateHUD();
-          if (state.waveZombiesRemaining <= 0) completeWave();
+        if (zombieTakeDamage(near, Math.max(1, Math.floor(t.userData.level * 0.6))) <= 0){
+          killZombie(near, near.position.clone().add(new THREE.Vector3(0,1,0)), null, 1, 'turret');
+        } else {
+          beep(400, 0.05, 'square', 0.08);
         }
       }
     } else head.rotation.y += delta * 1.5;
@@ -2778,7 +3138,7 @@ function startWave(){
     state.skipCarry = base;
     state.waveActive = false;
     state.wave++;
-    state.waveCooldown = 4;
+    state.waveCooldown = 3;
     const timer = document.getElementById('wave-timer');
     timer.classList.add('show');
     timer.textContent = 'SKIPPED — NEXT WAVE DOUBLED';
@@ -2791,7 +3151,7 @@ function startWave(){
   state.waveZombiesTotal = base;
   state.waveZombiesRemaining = base;
   state.bossPending = (state.wave % 5 === 0) ? 1 : 0;
-  state.zombieSpawnInterval = Math.max(400, 1300 - state.wave * 100);
+  state.zombieSpawnInterval = Math.max(340, 1150 - state.wave * 100);
   state.zombieSpawnTimer = 0;
   state.waveActive = true;
   sfx('wave');
@@ -2816,7 +3176,7 @@ function completeWave(){
   // every 3rd cleared wave offers a SKIP for the coming one
   state.skipReady = (state.wave % 3 === 0);
   // skip window lasts 5 seconds, then the wave just spawns
-  state.waveCooldown = state.skipReady ? 5 : 4;
+  state.waveCooldown = state.skipReady ? 4 : 3;
   const timer = document.getElementById('wave-timer');
   timer.classList.add('show');
   timer.textContent = 'NEXT WAVE IN ' + Math.ceil(state.waveCooldown);
@@ -2840,13 +3200,19 @@ function announceBoss(){
 function pickZombieType(){
   const w = state.wave;
   const r = Math.random();
-  if (w >= 7 && r < 0.06) return 'tank';
-  if (w >= 5 && r < 0.14) return 'brute';
-  if (w >= 4 && r < 0.26) return 'hound';
-  if (w >= 5 && r < 0.36) return 'spitter';
-  if (w >= 3 && r < 0.46) return 'runner';
-  if (w >= 4 && r < 0.58) return 'crawler';
-  if (w >= 2 && r < 0.7) return 'exploder';
+  if (w >= 8 && r < 0.05) return 'driller';
+  if (w >= 7 && r < 0.1) return 'zhog';
+  if (w >= 6 && r < 0.15) return 'witch';
+  if (w >= 6 && r < 0.21) return 'golem';
+  if (w >= 5 && r < 0.28) return 'corrupt';
+  if (w >= 4 && r < 0.35) return 'slime';
+  if (w >= 7 && r < 0.41) return 'tank';
+  if (w >= 5 && r < 0.48) return 'brute';
+  if (w >= 4 && r < 0.56) return 'hound';
+  if (w >= 5 && r < 0.64) return 'spitter';
+  if (w >= 3 && r < 0.72) return 'runner';
+  if (w >= 4 && r < 0.78) return 'crawler';
+  if (w >= 2 && r < 0.86) return 'exploder';
   return 'walker';
 }
 
@@ -2891,16 +3257,17 @@ function switchWeapon(slot){
   sniper.visible = false;
   pistol.visible = false;
   minigun.visible = false;
+  fling.visible = false;
   hammer.visible = false;
   state.hammerMode = false;
   state.zooming = false;
   if (state.buildMode) setBuildMode(false);
   
   // First-person arms only for gun slots
-  fpArms.forEach(a => a.visible = slot < 6);
+  fpArms.forEach(a => a.visible = slot < 7);
   
-  const weaponMap = ['rifle','shotgun','smg','sniper','pistol','minigun'];
-  if (slot < 6){
+  const weaponMap = ['rifle','shotgun','smg','sniper','pistol','minigun','fling'];
+  if (slot < 7){
     const w = weaponMap[slot];
     if (w !== 'rifle' && !state.ownedWeapons.includes(w)){
       addKill(`❌ ${w.toUpperCase()} not owned — buy at Shop (T)`);
@@ -2915,14 +3282,15 @@ function switchWeapon(slot){
     if (w === 'sniper') sniper.visible = true;
     if (w === 'pistol') pistol.visible = true;
     if (w === 'minigun') minigun.visible = true;
-  } else if (slot === 6){
+    if (w === 'fling') fling.visible = true;
+  } else if (slot === 7){
     state.hammerMode = true;
     hammer.visible = true;
     addKill('🔨 HAMMER — Click structure to upgrade');
-  } else if (slot === 7){
+  } else if (slot === 8){
     setBuildMode(!state.buildMode);
     if (state.buildMode) {
-      document.querySelector('[data-slot="7"]').classList.add('active');
+      document.querySelector('[data-slot="8"]').classList.add('active');
     }
   }
   updateHUD();
@@ -2999,7 +3367,9 @@ const shopData = {
     { id:'sniper', name:'Sniper', icon:'🎯', woodCost:60, scrapCost:40, desc:'High damage',
       action:() => { if (!state.ownedWeapons.includes('sniper')) state.ownedWeapons.push('sniper'); } },
     { id:'minigun', name:'Minigun', icon:'⚙️', woodCost:70, scrapCost:50, desc:'Sustained fire',
-      action:() => { if (!state.ownedWeapons.includes('minigun')) state.ownedWeapons.push('minigun'); } }
+      action:() => { if (!state.ownedWeapons.includes('minigun')) state.ownedWeapons.push('minigun'); } },
+    { id:'fling', name:'Fling Thrower', icon:'🌀', woodCost:85, scrapCost:60, desc:'Hurls zombies sky-high',
+      action:() => { if (!state.ownedWeapons.includes('fling')) state.ownedWeapons.push('fling'); } }
   ],
   ammo: [
     { id:'a1', name:'Ammo Pouch', icon:'📦', woodCost:3, scrapCost:2, desc:'+30 ammo',
@@ -3044,7 +3414,7 @@ function renderInv(){
   const grid = document.getElementById('inv-grid');
   grid.innerHTML = '';
   const allItems = [];
-  ['rifle','shotgun','smg','sniper','pistol','minigun'].forEach(w => {
+  ['rifle','shotgun','smg','sniper','pistol','minigun','fling'].forEach(w => {
     if (state.ownedWeapons.includes(w)) {
       allItems.push({ id:w, name:w.toUpperCase(), icon:'🔫', type:'weapon', count:1, desc:'Equip' });
     }
@@ -3061,7 +3431,7 @@ function renderInv(){
       cell.innerHTML = `<div class="ic">${it.icon}</div><div class="nm">${it.name}</div>${it.count>1?`<div class="ct">${it.count}</div>`:''}`;
       cell.onclick = () => {
         if (it.type === 'weapon'){
-          const map = { rifle:0, shotgun:1, smg:2, sniper:3, pistol:4, minigun:5 };
+          const map = { rifle:0, shotgun:1, smg:2, sniper:3, pistol:4, minigun:5, fling:6 };
           switchWeapon(map[it.id]);
           togglePanel('inv');
         } else if (it.id === 'medkit' && state.health < state.maxHealth){
@@ -3223,6 +3593,8 @@ function animate(){
     
     updateZombies(delta);
     updateSpitBalls(delta);
+    updateFlingBalls(delta);
+    updatePuddles(delta);
     updateTurrets(delta);
     updatePlayer(delta);
     updateGibsAndCorpses(delta);

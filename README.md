@@ -16,9 +16,9 @@ First-person zombie survival with building. Stand your ground through escalating
 | RMB | Sniper scope |
 | F | Skip next wave (when offered) — it doubles the one after |
 | E/R | Reload |
-| 1-6 | Weapons (Rifle, Shotgun, SMG, Sniper, Pistol, Minigun) |
-| 7 | Hammer (upgrade structures) |
-| 8 | Build mode |
+| 1-7 | Weapons (Rifle, Shotgun, SMG, Sniper, Pistol, Minigun, Fling Thrower) |
+| 8 | Hammer (upgrade structures) |
+| 9 | Build mode |
 | Q | Inventory |
 | C | Crafting |
 | T | Shop |
@@ -32,6 +32,21 @@ First-person zombie survival with building. Stand your ground through escalating
 - **Town** — buildings, trees, streets
 - **Arena** — open ring with central platforms
 - **Ruins** — scattered walls and ruined towers
+
+## Zombies
+
+Walker, Runner, Crawler, Exploder, Spitter, Hound, Brute, Tank — plus specials:
+
+- **Witch** — summons fresh undead around her
+- **Driller** — burrows underground and bursts up with a surprise attack
+- **Golem** — extremely tanky, slow, steady chip damage
+- **Z-Hog Rider** — rider on a gore hog: very fast, fragile, hits hard
+- **Corruption** — leaves a corruption puddle on death; zombies inside regen and shrug off 30% of damage
+- **Slime** — splits into 2, then 4 smaller slimes before finally dying
+
+## Fling Thrower
+
+Gravity cannon (slot 7, buy at the Shop) — lobs an orb that hurls zombies sky-high; they take fall damage on the way down.
 
 ## Tech
 
