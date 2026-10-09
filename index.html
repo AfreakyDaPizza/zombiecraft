@@ -3155,7 +3155,7 @@ function renderDlc(){
     div.className = 'meta-card' + (done ? ' mc-owned' : '');
     div.innerHTML = `<div class="mc-top"><span class="mc-icon">${c.icon}</span><span class="mc-name">${c.name.toUpperCase()}</span></div>
       <div class="mc-desc">${c.desc}</div>
-      <div class="mc-price">${done ? '✔ REDEEMED' : 'CODE: <span class="dlc-code">' + code + '</span>'}</div>`;
+      <div class="mc-price">${done ? '✔ REDEEMED' : 'Code: ???'}</div>`;
     el.appendChild(div);
   }
 }
