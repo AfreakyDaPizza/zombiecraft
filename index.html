@@ -59,6 +59,15 @@
   .meta-card .mc-level { font-size:12px; color:#ffb347; font-weight:bold; }
   .meta-card.mc-owned { border-color:#5fff9f; }
   .meta-card.mc-active { border-color:#ffb347; background:rgba(60,45,20,0.92); }
+  .dlc-intro { font-size:12px; color:#bbb; margin-bottom:12px; }
+  .dlc-row { display:flex; gap:10px; align-items:center; margin-bottom:12px; }
+  #dlc-input { flex:0 1 300px; padding:12px 16px; background:rgba(0,0,0,0.6); border:2px solid #3a4a5a; border-radius:8px; color:#fff; font-size:15px; letter-spacing:2px; font-weight:bold; text-align:center; text-transform:uppercase; outline:none; }
+  #dlc-input:focus { border-color:#ffb347; }
+  #dlc-input::placeholder { color:#556; font-weight:normal; letter-spacing:1px; }
+  #dlc-status { min-height:20px; font-size:13px; font-weight:bold; margin-bottom:10px; }
+  #dlc-status.ok { color:#5fff9f; }
+  #dlc-status.err { color:#ff6a6a; }
+  .dlc-list { display:grid; grid-template-columns:1fr; gap:10px; width:min(560px,100%); margin-bottom:6px; }
   .map-picker { display:flex; gap:12px; margin-bottom:20px; }
   .map-opt { padding:12px 24px; background:rgba(40,50,65,0.9); border:3px solid #3a4a5a; border-radius:8px; cursor:pointer; font-size:13px; font-weight:bold; transition:all 0.15s; }
   .map-opt:hover { border-color:#ffb347; }
@@ -170,6 +179,7 @@
     <button class="ltab active" data-lt="maps">🗺️ Maps</button>
     <button class="ltab" data-lt="upg">💠 Upgrade</button>
     <button class="ltab" data-lt="cls">🦸 Classes</button>
+    <button class="ltab" data-lt="dlc">💳 DLC</button>
   </div>
   <div id="lobby-panels">
     <div class="lpan active" id="lpan-maps">
@@ -190,6 +200,16 @@
     <div class="lpan" id="lpan-cls">
       <div id="cls-list" class="cls-grid"></div>
       <button class="btn small" id="cls-back">← Back</button>
+    </div>
+    <div class="lpan" id="lpan-dlc">
+      <div class="dlc-intro">Redeem a DLC code to unlock bonus content</div>
+      <div class="dlc-row">
+        <input id="dlc-input" type="text" placeholder="ENTER DLC CODE" autocomplete="off" spellcheck="false">
+        <button class="btn small" id="dlc-btn">🎁 REDEEM</button>
+      </div>
+      <div id="dlc-status"></div>
+      <div id="dlc-list" class="dlc-list"></div>
+      <button class="btn small" id="dlc-back">← Back</button>
     </div>
   </div>
   <div class="controls">
@@ -369,7 +389,8 @@ const state = {
   ghost:null,
   zc:0, upgrades:{}, classes:[], activeClass:null,
   spdMul:1, mechActive:false, mechHp:0, mechMaxHp:5000, mechAmmoL:0, mechAmmoR:0, mechCd:0, mechRmb:false,
-  meleeMode:false, souls:0, drones:[], ghosts:[], droneCharge:0
+  meleeMode:false, souls:0, drones:[], ghosts:[], droneCharge:0,
+  allWeapons:false, redeemed:[], eyeH:1.7
 };
 
 (function loadMeta(){
@@ -378,6 +399,8 @@ const state = {
     state.upgrades = JSON.parse(localStorage.getItem('zc_upg') || '{}') || {};
     state.classes = JSON.parse(localStorage.getItem('zc_cls') || '[]') || [];
     state.activeClass = localStorage.getItem('zc_active') || null;
+    state.allWeapons = localStorage.getItem('zc_all') === '1';
+    state.redeemed = JSON.parse(localStorage.getItem('zc_redeemed') || '[]') || [];
   } catch(e){}
 })();
 function saveMeta(){
@@ -386,6 +409,8 @@ function saveMeta(){
     localStorage.setItem('zc_upg', JSON.stringify(state.upgrades));
     localStorage.setItem('zc_cls', JSON.stringify(state.classes));
     if (state.activeClass) localStorage.setItem('zc_active', state.activeClass);
+    localStorage.setItem('zc_all', state.allWeapons ? '1' : '0');
+    localStorage.setItem('zc_redeemed', JSON.stringify(state.redeemed));
   } catch(e){}
 }
 const BASE_DAMAGES = { rifle:1, shotgun:1.5, smg:0.8, sniper:3, pistol:1.3, minigun:0.9, fling:5, railgun:4.5, uzi:0.6 };
@@ -1249,16 +1274,16 @@ function spawnBloodDecal(x, z){
 const ZOMBIE_TYPES = {
   walker: { hp:4,   speed:[0.03,0.055], scale:[0.98,1.05], damage:10, score:12, attackCd:750,  shirt:0x3a5a7a },
   runner: { hp:3,   speed:[0.085,0.11],  scale:[0.9,0.95],  damage:7,  score:16, attackCd:450,  shirt:0x4a4a4a },
-  brute:  { hp:13,  speed:[0.02,0.03],   scale:[1.6,1.8],   damage:24, score:35, attackCd:1000, shirt:0x2b2b3a },
+  brute:  { hp:10,  speed:[0.02,0.03],   scale:[1.6,1.8],   damage:24, score:35, attackCd:1000, shirt:0x2b2b3a },
   crawler:{ hp:2,   speed:[0.12,0.17],   scale:[0.62,0.7],  damage:6,  score:16, attackCd:380,  shirt:0x553322 },
   exploder:{hp:3,   speed:[0.085,0.115], scale:[1.0,1.1],   damage:0,  score:22, attackCd:9e9,  shirt:0x4a3a2a },
-  tank:   { hp:28,  speed:[0.017,0.025], scale:[1.95,2.25], damage:36, score:70, attackCd:1150, shirt:0x1c1c28 },
+  tank:   { hp:20,  speed:[0.017,0.025], scale:[1.95,2.25], damage:36, score:70, attackCd:1150, shirt:0x1c1c28 },
   spitter:{ hp:6,   speed:[0.05,0.07],   scale:[1.0,1.08],  damage:0,  score:30, attackCd:1600, shirt:0x3a5a3a },
   hound:  { hp:2,   speed:[0.15,0.19],   scale:[0.75,0.85], damage:8,  score:20, attackCd:420,  shirt:0x17171f },
-  boss:   { hp:60,  speed:[0.008,0.012], scale:[2.4,2.9],   damage:25, score:300, attackCd:1800, shirt:0x1a0520 },
-  witch:  { hp:10,  speed:[0.035,0.05],  scale:[1.0,1.1],   damage:6,  score:45, attackCd:2600, shirt:0x2a1238 },
-  driller:{ hp:9,   speed:[0.045,0.06],  scale:[1.0,1.1],   damage:6,  score:55, attackCd:1100, shirt:0x3a3a2a },
-  golem:  { hp:55,  speed:[0.016,0.022], scale:[2.0,2.4],   damage:3,  score:80, attackCd:1000, shirt:0x55555f },
+  boss:   { hp:45,  speed:[0.008,0.012], scale:[2.4,2.9],   damage:25, score:300, attackCd:1800, shirt:0x1a0520 },
+  witch:  { hp:8,   speed:[0.035,0.05],  scale:[1.0,1.1],   damage:6,  score:45, attackCd:2600, shirt:0x2a1238 },
+  driller:{ hp:8,   speed:[0.045,0.06],  scale:[1.0,1.1],   damage:6,  score:55, attackCd:1100, shirt:0x3a3a2a },
+  golem:  { hp:38,  speed:[0.016,0.022], scale:[2.0,2.4],   damage:3,  score:80, attackCd:1000, shirt:0x55555f },
   zhog:   { hp:2,   speed:[0.19,0.24],   scale:[1.02,1.16], damage:20, score:60, attackCd:700,  shirt:0x3a2440 },
   corrupt:{ hp:7,   speed:[0.06,0.08],   scale:[1.0,1.1],   damage:10, score:40, attackCd:800,  shirt:0x1c4a1c },
   slime:  { hp:5,   speed:[0.09,0.12],   scale:[0.9,1.0],   damage:6,  score:30, attackCd:600,  shirt:0x2a7a2a }
@@ -2932,7 +2957,7 @@ function startGame(){
   (MAPS[state.selectedMap] || buildTownMap)();
   
   // Full playthrough reset
-  camera.position.set(0, 1.7, 10);
+  camera.position.set(0, state.eyeH, 10);
   state.yaw = 0; state.pitch = 0;
   state.velocityY = 0; state.isGrounded = true;
   state.health = state.maxHealth;
@@ -2943,6 +2968,7 @@ function startGame(){
   state.magAmmo = { rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:150, fling:5, railgun:4, uzi:50 };
   state.reserve = { rifle:150, shotgun:60, smg:300, sniper:50, pistol:120, minigun:600, fling:30, railgun:20, uzi:400 };
   applyClass();
+  camera.position.y = state.eyeH;
   state.health = state.maxHealth;
   state.medkits = 2;
   state.hasRespawn = false;
@@ -3044,12 +3070,17 @@ function applyClass(){
       mechArms.visible = true;
       break;
   }
+  state.eyeH = state.mechActive ? 2.9 : 1.7;
+  if (state.allWeapons){
+    weaponMap.forEach(w => { if (!state.ownedWeapons.includes(w)) state.ownedWeapons.push(w); });
+  }
 }
 function renderLobby(){
   document.getElementById('lobby-zc').textContent =
-    'LOBBY · ' + state.zc + ' 💠 · CLASS: ' + (CLASS_DEFS[state.activeClass] ? CLASS_DEFS[state.activeClass].name.toUpperCase() : 'NONE');
+    'LOBBY · ' + state.zc + ' 💠 · CLASS: ' + (CLASS_DEFS[state.activeClass] ? CLASS_DEFS[state.activeClass].name.toUpperCase() : 'NONE') + (state.allWeapons ? ' · 💎 ALL' : '');
   renderUpgrades();
   renderClasses();
+  renderDlc();
 }
 function renderUpgrades(){
   const el = document.getElementById('upg-list');
@@ -3091,9 +3122,12 @@ function renderClasses(){
     div.className = 'meta-card' + (active ? ' mc-active' : (owned ? ' mc-owned' : ''));
     div.innerHTML = `<div class="mc-top"><span class="mc-icon">${c.icon}</span><span class="mc-name">${c.name.toUpperCase()}</span></div>
       <div class="mc-desc">${c.desc}</div>
-      <div class="mc-price">${owned ? (active ? '✔ ACTIVE' : 'EQUIP') : c.cost + ' 💠'}</div>`;
+      <div class="mc-price">${active ? '⏹ UNEQUIP' : (owned ? 'EQUIP' : c.cost + ' 💠')}</div>`;
     div.onclick = () => {
-      if (active){ sfx('deny'); return; }
+      if (active){
+        state.activeClass = null;
+        saveMeta(); addKill('🦸 Class unequipped — back to NONE'); renderLobby(); return;
+      }
       if (!owned){
         if (state.zc < c.cost){ addKill('❌ Need ' + c.cost + ' 💠'); sfx('deny'); return; }
         state.zc -= c.cost;
@@ -3106,15 +3140,67 @@ function renderClasses(){
     el.appendChild(div);
   }
 }
+const DLC_CODES = {
+  release: { name:'Release', desc:'+100 💠 z-coins', icon:'🎁' },
+  pneumonoultramicroscopicsilicovolcanoconiosis: { name:'Everything', desc:'ALL classes · max upgrades · ALL weapons every run · +100000 💠', icon:'💎' }
+};
+function renderDlc(){
+  const el = document.getElementById('dlc-list');
+  if (!el) return;
+  el.innerHTML = '';
+  for (const code in DLC_CODES){
+    const c = DLC_CODES[code];
+    const done = state.redeemed.includes(code);
+    const div = document.createElement('div');
+    div.className = 'meta-card' + (done ? ' mc-owned' : '');
+    div.innerHTML = `<div class="mc-top"><span class="mc-icon">${c.icon}</span><span class="mc-name">${c.name.toUpperCase()}</span></div>
+      <div class="mc-desc">${c.desc}</div>
+      <div class="mc-price">${done ? '✔ REDEEMED' : 'CODE: <span class="dlc-code">' + code + '</span>'}</div>`;
+    el.appendChild(div);
+  }
+}
+function redeemDlc(){
+  const input = document.getElementById('dlc-input');
+  const status = document.getElementById('dlc-status');
+  const code = (input.value || '').trim().toLowerCase();
+  input.value = '';
+  if (!code){ status.textContent = '⌨️ Enter a code first'; status.className = 'dlc-status err'; return; }
+  const def = DLC_CODES[code];
+  if (!def){ status.textContent = '❌ Unknown code'; status.className = 'dlc-status err'; return; }
+  if (state.redeemed.includes(code)){ status.textContent = '⚠️ Already redeemed'; status.className = 'dlc-status err'; return; }
+  state.redeemed.push(code);
+  if (code === 'release'){
+    state.zc += 100;
+    status.textContent = '✅ RELEASE redeemed! +100 💠';
+  } else if (code === 'pneumonoultramicroscopicsilicovolcanoconiosis'){
+    state.allWeapons = true;
+    const baseClasses = ['brawler','gunsmith','tanker','reaper','droneman','repairman','mech'];
+    baseClasses.forEach(id => { if (!state.classes.includes(id)) state.classes.push(id); });
+    for (const w in BASE_DAMAGES) state.upgrades[w] = 4;
+    applyUpgradeStats();
+    state.zc += 100000;
+    status.textContent = '💎 EVERYTHING unlocked! All classes · max upgrades · all weapons every run →';
+  }
+  status.className = 'dlc-status ok';
+  sfx('buy');
+  saveMeta();
+  renderLobby();
+  renderDlc();
+}
+document.getElementById('dlc-btn').addEventListener('click', () => { initAudio(); redeemDlc(); });
+document.getElementById('dlc-input').addEventListener('keydown', (e) => {
+  if (e.code === 'Enter'){ initAudio(); redeemDlc(); }
+});
 document.querySelectorAll('.ltab').forEach(b => b.addEventListener('click', () => {
   const t = b.dataset.lt;
   document.querySelectorAll('.ltab').forEach(x => x.classList.toggle('active', x === b));
-  ['maps','upg','cls'].forEach(p => document.getElementById('lpan-' + p).classList.toggle('active', p === t));
+  ['maps','upg','cls','dlc'].forEach(p => document.getElementById('lpan-' + p).classList.toggle('active', p === t));
   if (t === 'upg') renderUpgrades();
   if (t === 'cls') renderClasses();
 }));
 document.getElementById('upg-back').addEventListener('click', () => document.querySelector('.ltab[data-lt="maps"]').click());
 document.getElementById('cls-back').addEventListener('click', () => document.querySelector('.ltab[data-lt="maps"]').click());
+document.getElementById('dlc-back').addEventListener('click', () => document.querySelector('.ltab[data-lt="maps"]').click());
 renderLobby();
 
 document.addEventListener('mousedown', (e) => {
@@ -3154,6 +3240,7 @@ setInterval(() => {
 document.addEventListener('contextmenu', e => e.preventDefault());
 
 document.addEventListener('keydown', (e) => {
+  if (e.target && e.target.tagName === 'INPUT') return;
   state.keys[e.code] = true;
   if (document.getElementById('start-screen').style.display !== 'none'){
     if (MAP_CLICK_KEYS[e.code]) startGameAt(MAP_CLICK_KEYS[e.code]);
@@ -3373,9 +3460,10 @@ function updatePlayer(delta){
   state.velocityY -= 22 * delta;
   let ny = camera.position.y + state.velocityY * delta;
   const gy = getGroundY(camera.position.x, camera.position.z, camera.position.y);
-  const feetY = ny - 1.6;
+  const feetOff = state.eyeH - 0.1;
+  const feetY = ny - feetOff;
   if (feetY <= gy && state.velocityY <= 0){
-    ny = gy + 1.6;
+    ny = gy + feetOff;
     state.velocityY = 0;
     state.isGrounded = true;
   } else state.isGrounded = false;
@@ -3854,7 +3942,7 @@ function updateZombies(delta){
     const zp = z.position;
     const dx = pp.x - zp.x, dz = pp.z - zp.z;
     const distXZ = Math.sqrt(dx*dx + dz*dz);
-    const dy = pp.y - zp.y;
+    const dy = (pp.y - (state.eyeH - 1.7)) - zp.y;
 
     updateZombieAnim(z, delta);
 
