@@ -42,15 +42,15 @@ Pick a **Map** (click or press 1-5 to jump straight in), spend **💠 z-coins** 
 - **Town** — buildings, trees, streets
 - **Arena** — open ring with central platforms
 - **Ruins** — scattered walls and ruined towers
-- **Graveyard** — rows of tilting gravestones, lootable crypt rooftops, dead trees and flickering lanterns
-- **Swamp** — glossy ponds, boardwalks, reeds, bald-cypress trees and mud mounds
+- **Z-CHURCH** — a barricaded gothic church survivor base: stone courtyard, stained glass, sandbag walls, glowing altar and an eerie mist ring
+- **Construction** — tower crane, scaffolding towers, concrete foundations, freight containers, bulldozer and a gravel yard
 
 ## Weapons
 
 Rifle, Shotgun, SMG, Sniper, Pistol, Minigun, Fling Thrower, Railgun, and Uzi (inventory-only).
 
 - **Fling Thrower** — lobs an orb that hurls zombies sky-high; they take fall damage on the way down
-- **Railgun** — a piercing beam that plows through up to 5 zombies in a line
+- **Railgun** — a heavy piercing beam that plows through up to 12 zombies in a line
 
 ## Zombies
 
