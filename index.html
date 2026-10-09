@@ -977,7 +977,7 @@ const railgun = new THREE.Group();
   window.__rgCoil = coilMat;
   const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.05,0.14,8), gunDark);
   cap.rotation.z = Math.PI/2; cap.position.set(0.28,-0.26,-1.78); railgun.add(cap);
-  const holo = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.04,0.05), coreMat);
+  const holo = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.04,0.05), coilMat);
   holo.position.set(0.28,-0.12,-0.75); holo.rotation.z = 0.3; railgun.add(holo);
   const cell = new THREE.Mesh(new THREE.BoxGeometry(0.09,0.16,0.12), gunDark);
   cell.position.set(0.28,-0.36,-0.5); railgun.add(cell);
