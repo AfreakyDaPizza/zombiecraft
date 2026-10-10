@@ -36,14 +36,15 @@ Pick a **Map** (click or press 1-5 to jump straight in), spend **💠 z-coins** 
 - **Repair Man** (1000💠) — can build HEAL PADS (heal while standing on them) and BUFF TOWERS (+50% turret damage and -50% structure damage taken nearby)
 - **Reaper** (1500💠) — scythe melee that harvests souls from kills; press **V** with 3 souls to summon ghost allies
 - **Mech Pilot** (2000💠) — pilot a 5000-HP mech suit with dual fling cannons (LMB/RMB), +20% speed; when it's destroyed it drops +50 wood and +10 scrap
+- **???** (unlockable only via the pneumono DLC code) — the GHOST REAPER: starts with 1000000000000000 wood & scrap and the **Reaper Drone Gun**
 
 ## Maps
 
-- **Town** — buildings, trees, streets
-- **Arena** — open ring with central platforms
-- **Ruins** — scattered walls and ruined towers
-- **Z-CHURCH** — a barricaded gothic church survivor base: stone courtyard, stained glass, sandbag walls, glowing altar and an eerie mist ring
-- **Construction** — tower crane, scaffolding towers, concrete foundations, freight containers, bulldozer and a gravel yard
+- **Town** — war-torn downtown: patrolled streets, raised shop plazas, lamps, parking wrecks, barriers and barren lots
+- **Arena** — colosseum gladiator pit: torch-lit ring wall with banners and gates, pedestals, skull piles and sandbag nests
+- **Ruins** — overgrown ruins: creek with a stone bridge, fallen columns, obelisk, statue square and a west campfire
+- **Z-CHURCH** — a barricaded gothic church survivor base: stone courtyard, stained glass, banners, pipe organ, candelabras, weapon rack, gargoyles, glowing altar and an eerie mist ring
+- **Construction** — tower crane, signboard, warning flags, scaffolding, site hoardings, concrete foundations, freight containers, bulldozer and a gravel yard
 
 ## Weapons
 
@@ -51,6 +52,11 @@ Rifle, Shotgun, SMG, Sniper, Pistol, Minigun, Fling Thrower, Railgun, and Uzi (i
 
 - **Fling Thrower** — lobs an orb that hurls zombies sky-high; they take fall damage on the way down
 - **Railgun** — a heavy piercing beam that plows through up to 12 zombies in a line
+- **Reaper Drone Gun** (???) — the mystery class weapon; every shot spawns 5 attack drones + 1 ghost
+
+## DLC
+
+- **pneumonoultramicroscopicsilicovolcanoconiosis** — EVERYTHING: all classes (incl. **???**), max upgrades, all weapons, infinite wood & scrap (1000000000000000), +100000 💠
 
 ## Zombies
 

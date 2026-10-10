@@ -338,6 +338,7 @@ function sfx(n) {
   else if (n==='fling'){ beep(180,0.15,'sawtooth',0.18); beep(340,0.18,'sine',0.15);}
   else if (n==='railgun'){ beep(1400,0.25,'sawtooth',0.2); beep(75,0.3,'sine',0.22);}
   else if (n==='uzi') beep(340,0.035,'square',0.08);
+  else if (n==='reaper'){ beep(200,0.12,'sawtooth',0.16); beep(700,0.15,'sine',0.12); setTimeout(()=>beep(1400,0.2,'sine',0.09),70);}
   else if (n==='spit') beep(300,0.1,'sawtooth',0.12);
   else if (n==='hit') beep(800,0.08,'sine',0.15);
   else if (n==='zdie') beep(180,0.35,'sawtooth',0.2);
@@ -354,17 +355,17 @@ function sfx(n) {
 const state = {
   health:150, maxHealth:150,
   waveTimerShown:-1,
-  magAmmo:{ rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:150, fling:5, railgun:4, uzi:50 },
-  reserve:{ rifle:150, shotgun:60, smg:300, sniper:50, pistol:120, minigun:600, fling:30, railgun:35, uzi:400 },
+  magAmmo:{ rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:150, fling:5, railgun:4, uzi:50, reaper:40 },
+  reserve:{ rifle:150, shotgun:60, smg:300, sniper:50, pistol:120, minigun:600, fling:30, railgun:35, uzi:400, reaper:999 },
   score:0, kills:0,
   zombies:[], structures:[], gibs:[], spitBalls:[], flingBalls:[], puddles:[],
   gameOver:false,
   weapon:'rifle', lastShot:0,
-  fireRates:{ rifle:80, shotgun:430, smg:55, sniper:700, pistol:120, minigun:32, fling:360, railgun:950, uzi:38 },
-  damages:{ rifle:1, shotgun:1.5, smg:0.8, sniper:3, pistol:1.3, minigun:0.9, fling:5, railgun:10, uzi:0.6 },
-  magSizes:{ rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:150, fling:5, railgun:6, uzi:50 },
-  pellets:{ rifle:1, shotgun:8, smg:1, sniper:1, pistol:1, minigun:1, fling:1, railgun:1, uzi:1 },
-  spreads:{ rifle:0, shotgun:5, smg:2.5, sniper:0, pistol:1.5, minigun:2.2, fling:0, railgun:0, uzi:2.2 },
+  fireRates:{ rifle:80, shotgun:430, smg:55, sniper:700, pistol:120, minigun:32, fling:360, railgun:950, uzi:38, reaper:150 },
+  damages:{ rifle:1, shotgun:1.5, smg:0.8, sniper:3, pistol:1.3, minigun:0.9, fling:5, railgun:10, uzi:0.6, reaper:2 },
+  magSizes:{ rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:150, fling:5, railgun:6, uzi:50, reaper:40 },
+  pellets:{ rifle:1, shotgun:8, smg:1, sniper:1, pistol:1, minigun:1, fling:1, railgun:1, uzi:1, reaper:1 },
+  spreads:{ rifle:0, shotgun:5, smg:2.5, sniper:0, pistol:1.5, minigun:2.2, fling:0, railgun:0, uzi:2.2, reaper:1.5 },
   ownedWeapons:['rifle'],
   zombieSpawnTimer:0, zombieSpawnInterval:1800,
   wave:1, waveZombiesRemaining:0, waveZombiesTotal:0,
@@ -2654,23 +2655,50 @@ function buildTownMap(){
   const root = new THREE.Group();
   scene.add(root);
   state.mapRoot = root;
-  
+
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), mats.grass);
   ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; root.add(ground);
-  
-  // Roads
+
+  // Overgrown grass patches (stubble fields between lots)
+  const grassPatch = new THREE.MeshStandardMaterial({ map:grassTex, color:0x5a7a3a, roughness:1 });
+  for (let i=0;i<26;i++){
+    const gp = new THREE.Mesh(new THREE.PlaneGeometry(6+Math.random()*10, 6+Math.random()*10), grassPatch);
+    gp.rotation.x = -Math.PI/2;
+    gp.position.set((Math.random()-0.5)*180, 0.012, (Math.random()-0.5)*180);
+    gp.rotation.z = Math.random()*Math.PI; root.add(gp);
+  }
+
+  // Roads — asphalt with worn center & edge lines
   const road1 = new THREE.Mesh(new THREE.PlaneGeometry(8, 200), mats.road);
   road1.rotation.x = -Math.PI/2; road1.position.y = 0.02; road1.receiveShadow = true; root.add(road1);
   const road2 = new THREE.Mesh(new THREE.PlaneGeometry(200, 8), mats.road);
   road2.rotation.x = -Math.PI/2; road2.position.y = 0.02; road2.receiveShadow = true; root.add(road2);
-  
-  // Concrete plazas
+  const dashMat = new THREE.MeshStandardMaterial({ color:0xd8c27a, roughness:0.9 });
+  for (let i=-49;i<50;i+=4){
+    const d1 = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.02,3), dashMat);
+    d1.position.set(0, 0.045, i); root.add(d1);
+    const d2 = new THREE.Mesh(new THREE.BoxGeometry(3,0.02,0.3), dashMat);
+    d2.position.set(i, 0.045, 0); root.add(d2);
+  }
+  // Cracked asphalt patches
+  const crackMat = new THREE.MeshStandardMaterial({ map:stoneTex, color:0x7a7a7a, roughness:0.95 });
+  for (let i=0;i<14;i++){
+    const cp = new THREE.Mesh(new THREE.PlaneGeometry(1.2+Math.random()*2, 1.2+Math.random()*2), crackMat);
+    cp.rotation.x = -Math.PI/2;
+    const cx = (Math.random()-0.5)*40, cz = (Math.random()-0.5)*40;
+    cp.position.set(Math.abs(cx)<3.2 ? 0 : cx, 0.04, Math.abs(cz)<3.2 ? 0 : cz);
+    cp.rotation.z = Math.random()*Math.PI; root.add(cp);
+  }
+
+  // Concrete plazas (keep footprints) + edge curbs
   [[-14,-14],[14,-14],[-14,14],[14,14]].forEach(([x,z]) => {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), mats.concrete);
     p.rotation.x = -Math.PI/2; p.position.set(x, 0.03, z); p.receiveShadow = true; root.add(p);
+    const curb = new THREE.Mesh(new THREE.BoxGeometry(15, 0.2, 15), mats.road);
+    curb.position.set(x, 0.1, z); curb.castShadow = true; root.add(curb);
   });
-  
-  // Buildings
+
+  // Buildings (collidable cover + door gaps)
   const buildings = [
     [-14,-14, 9, 9, 5, 'brick'],
     [14,-14, 9, 9, 5.5, 'concrete'],
@@ -2684,7 +2712,257 @@ function buildTownMap(){
   });
   state.rooftopZones = [];
 
-  // Trees — layered trunk + stacked foliage cones
+  // Extra outer buildings: garage, warehouse, corner shop, boarded house
+  const extraB = [
+    [-44,-40, 10, 8, 4.5, 'concrete'],
+    [44, 40, 10, 8, 5, 'brick'],
+    [-44, 44, 8, 10, 4, 'wood'],
+    [44, -40, 8, 10, 5.5, 'brick'],
+  ];
+  extraB.forEach(([x,z,w,dh,h,style]) => {
+    buildEnhancedBuilding(root, x, z, w, dh, h, style);
+  });
+
+  // Billboards on the corners between plazas
+  const billMat = new THREE.MeshStandardMaterial({ color:0xcfcfcf, roughness:0.7 });
+  [[-22,22],[22,-22]].forEach(([x,z]) => {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.16,7,8), mats.metal);
+    pole.position.set(x, 3.5, z); pole.castShadow = true; root.add(pole);
+    const board = new THREE.Mesh(new THREE.BoxGeometry(7, 4, 0.18), billMat);
+    board.position.set(x, 8.2, z); board.rotation.y = Math.PI/4; board.castShadow = true; root.add(board);
+    const art = new THREE.Mesh(new THREE.BoxGeometry(6.4, 3.4, 0.05),
+      new THREE.MeshStandardMaterial({ color:0x994422, roughness:0.9 }));
+    art.position.set(x, 8.2, z); art.rotation.y = Math.PI/4; root.add(art);
+    // ledger strip
+    const str = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.5, 0.18), new THREE.MeshStandardMaterial({ color:0x7a5a2a, roughness:0.9 }));
+    str.position.set(x, 6.2, z); str.rotation.y = Math.PI/4; root.add(str);
+    state.collidables.push({ isStatic:true, getBounds:()=>({ minX:x-0.2, maxX:x+0.2, minZ:z-0.2, maxZ:z+0.2, minY:0, maxY:7 }) });
+  });
+
+  // ===== Street furniture =====
+  // Traffic lights at the intersection
+  [[4.9,4.9,0.7],[4.9,-4.9,-0.7],[-4.9,4.9,-0.7],[-4.9,-4.9,0.7]].forEach(([lx,lz,rotY]) => {
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.09,5,6), mats.metal);
+    arm.position.set(lx, 2.5, lz); arm.castShadow = true; root.add(arm);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.7,1.5,0.45),
+      new THREE.MeshStandardMaterial({ color:0x222222, roughness:0.5 }));
+    head.position.set(lx, 5, lz); head.rotation.y = rotY; root.add(head);
+    const red = new THREE.Mesh(new THREE.CircleGeometry(0.14,10), new THREE.MeshStandardMaterial({ color:0x331111, emissive:0xff2222, emissiveIntensity:0.9 }));
+    red.position.set(lx, 5.45, lz); red.rotation.y = rotY; red.rotation.z = rotY; root.add(red);
+    const yel = new THREE.Mesh(new THREE.CircleGeometry(0.14,10), new THREE.MeshStandardMaterial({ color:0x332211, emissive:0xffaa22, emissiveIntensity:0.9 }));
+    yel.position.set(lx, 5.0, lz); yel.rotation.y = rotY; yel.rotation.z = rotY; root.add(yel);
+  });
+  // Fire hydrant "Frankensteined" reds
+  const hydMat = new THREE.MeshStandardMaterial({ color:0x9a1a1a, roughness:0.5 });
+  [[-5.8,6.2],[6.2,-5.8],[5.2,6.2],[-6.2,5.2]].forEach(([hx,hz]) => {
+    const h = new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.16,0.7,8), hydMat);
+    h.position.set(hx, 0.35, hz); h.castShadow = true; root.add(h);
+    const capA = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,0.14,6), hydMat);
+    capA.position.set(hx-0.14, 0.42, hz); capA.rotation.z = Math.PI/2; root.add(capA);
+    const capB = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,0.14,6), hydMat);
+    capB.position.set(hx+0.14, 0.42, hz); capB.rotation.z = Math.PI/2; root.add(capB);
+  });
+  // Benches at plazas
+  [[-13.2,-13.2],[13.2,-13.2],[-13.2,13.2],[13.2,13.2]].forEach(([bx,bz]) => {
+    const bench = new THREE.Group();
+    const bMat = new THREE.MeshStandardMaterial({ map:woodTex, color:0x6a4a26, roughness:0.9 });
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(2.2,0.1,0.55), bMat);
+    seat.position.y = 0.45; bench.add(seat);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(2.2,0.55,0.08), bMat);
+    back.position.set(0,0.75,0.27); back.rotation.x = 0.15; bench.add(back);
+    const l1 = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.45,0.55), mats.metal);
+    l1.position.set(-1,0.22,0); bench.add(l1);
+    const l2 = l1.clone(); l2.position.x = 1; bench.add(l2);
+    bench.position.set(bx, 0, bz); bench.rotation.y = Math.PI/4 + 0.6;
+    root.add(bench);
+    state.collidables.push({ isStatic:true, getBounds:()=>({ minX:bx-1.2, maxX:bx+1.2, minZ:bz-0.6, maxZ:bz+0.6, minY:0, maxY:0.9 }) });
+  });
+
+  // ===== Parked cars (collidable cover) =====
+  const carColors = [0x8a1a1a, 0x1a3a8a, 0x8a8a8a, 0xcfc858, 0x2a6a2a, 0x6a2a1a];
+  const carMat = () => new THREE.MeshStandardMaterial({ color:carColors[Math.floor(Math.random()*carColors.length)], metalness:0.6, roughness:0.4 });
+  const glassMat = () => new THREE.MeshStandardMaterial({ color:0x334455, roughness:0.15, metalness:0.3 });
+  const wheelMat = () => new THREE.MeshStandardMaterial({ color:0x1a1a1a, roughness:0.9 });
+  function makeCar(x, z, rot, dead){
+    const g = new THREE.Group();
+    const bodyMat = carMat(), glassMatI = glassMat(), wheelMatI = wheelMat();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.6,0.5,3.6), bodyMat);
+    body.position.y = 0.55; body.castShadow = true; g.add(body);
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.4,0.5,1.8), glassMatI);
+    cabin.position.set(-0.1, 0.95, -0.2); cabin.castShadow = true; g.add(cabin);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(1.5,0.08,1.9), bodyMat);
+    roof.position.set(-0.1,1.2,-0.2); g.add(roof);
+    const hood = new THREE.Mesh(new THREE.BoxGeometry(1.5,0.14,0.9), bodyMat);
+    hood.position.set(0, 0.72, 1.5); hood.castShadow = true; g.add(hood);
+    const trunkP = new THREE.Mesh(new THREE.BoxGeometry(1.5,0.14,0.9), bodyMat);
+    trunkP.position.set(0, 0.7, -1.5); trunkP.castShadow = true; g.add(trunkP);
+    [[-0.7,0.55],[0.7,0.55],[-0.7,-0.55],[0.7,-0.55]].forEach(([wx,wz]) => {
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,0.22,10), wheelMatI);
+      wheel.rotation.z = Math.PI/2;
+      wheel.position.set(wx, 0.34, wz); wheel.castShadow = true; g.add(wheel);
+    });
+    if (dead){
+      g.rotation.x = Math.PI * 0.5 * (0.5 + Math.random()*0.3);
+    }
+    g.position.set(x, 0, z);
+    g.rotation.y = rot;
+    root.add(g);
+    state.collidables.push({ isStatic:true, getBounds:() => {
+        const cos = Math.cos(rot), sin = Math.sin(rot);
+        const rx = Math.abs(cos*1.9)+Math.abs(sin*0.85);
+        const rz = Math.abs(sin*1.9)+Math.abs(cos*0.85);
+        return { minX:x-rx, maxX:x+rx, minZ:z-rz, maxZ:z+rz, minY:0, maxY:1.5 };
+      }});
+  }
+  makeCar(-4.2, -18, Math.PI/2);
+  makeCar(4.2, -28, Math.PI/2);
+  makeCar(-4.2, 22, Math.PI/2);
+  makeCar(4.2, 32, Math.PI/2);
+  makeCar(0, 40, 0);
+  makeCar(0, -42, 0);
+  makeCar(18, -48, 0.4);      // abandoned on the shoulder
+  makeCar(-18, 50, -0.6);
+  // Hulk truck wreck at the west plaza
+  const truck = new THREE.Group();
+  const tCab = new THREE.Mesh(new THREE.BoxGeometry(2.2,1.6,2.6), new THREE.MeshStandardMaterial({ color:0xaa3311, metalness:0.5, roughness:0.6 }));
+  tCab.position.set(0, 1.4, -1.5); tCab.castShadow = true; truck.add(tCab);
+  const tBox = new THREE.Mesh(new THREE.BoxGeometry(2.2,2.2,6), new THREE.MeshStandardMaterial({ color:0x8899aa, metalness:0.3, roughness:0.7 }));
+  tBox.position.set(0, 1.9, 2.6); tBox.castShadow = true; truck.add(tBox);
+  const tGlass = new THREE.Mesh(new THREE.BoxGeometry(2.1,0.7,0.3), glassMat());
+  tGlass.position.set(0, 1.7, -0.35); truck.add(tGlass);
+  truck.position.set(-26, 0, -14); truck.rotation.y = -0.7;
+  truck.rotation.z = 0.12; root.add(truck);
+  state.collidables.push({ isStatic:true, getBounds:()=>({ minX:-28.4, maxX:-22.6, minZ:-16.6, maxZ:-11.4, minY:0, maxY:3 }) });
+
+  // Dumpsters
+  function makeDumpster(x, z, rot){
+    const g = new THREE.Group();
+    const dMat = new THREE.MeshStandardMaterial({ color:0x2f6b2f, metalness:0.4, roughness:0.7 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.2,0.9,1.8), dMat);
+    body.position.y = 0.45; body.castShadow = true; g.add(body);
+    const lid = new THREE.Mesh(new THREE.BoxGeometry(1.22,0.08,0.9), new THREE.MeshStandardMaterial({ color:0x245a24, roughness:0.7 }));
+    lid.position.set(0, 0.95, 0.3); lid.castShadow = true; g.add(lid);
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.06,0.9), new THREE.MeshStandardMaterial({ color:0x3a3a3a }));
+    handle.position.set(-0.6, 0.75, 0); g.add(handle);
+    const trash = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.4, 1.6),
+      new THREE.MeshStandardMaterial({ color:0x3a2a1a, roughness:1 }));
+    trash.position.set(0, 0.28, 0); trash.rotation.y = 0.3; g.add(trash);
+    g.position.set(x, 0, z); g.rotation.y = rot;
+    root.add(g);
+    state.collidables.push({ isStatic:true, getBounds:() => ({ minX:x-0.75, maxX:x+0.75, minZ:z-1.1, maxZ:z+1.1, minY:0, maxY:1.4 }) });
+  }
+  makeDumpster(-10, -12, 0.5);
+  makeDumpster(12, 10, -0.4);
+  makeDumpster(-4.5, 12, Math.PI/2);
+  makeDumpster(20, -32, 1.2);
+
+  // Mailboxes
+  function makeMailbox(x, z){
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.9,6), mats.metal);
+    post.position.set(x, 0.45, z); post.castShadow = true; root.add(post);
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.35,0.22), new THREE.MeshStandardMaterial({ color:0x2a3a8a, roughness:0.5 }));
+    box.position.set(x, 1.0, z); box.castShadow = true; root.add(box);
+  }
+  makeMailbox(-5.2, 6);
+  makeMailbox(5.2, -10);
+
+  // Rubble & debris
+  const rubbleMat = new THREE.MeshStandardMaterial({ map:stoneTex, color:0x6a6a6a, roughness:0.95 });
+  for (let i=0;i<70;i++){
+    const x = (Math.random()-0.5)*110;
+    const z = (Math.random()-0.5)*110;
+    if (Math.abs(x)<3.4 && Math.abs(z)<3.4) continue;
+    const s = 0.4 + Math.random()*0.8;
+    const r = new THREE.Mesh(new THREE.BoxGeometry(s, s*0.6, s), rubbleMat);
+    r.position.set(x, s*0.3, z); r.rotation.y = Math.random()*Math.PI;
+    r.rotation.x = (Math.random()-0.5)*0.4; r.rotation.z = (Math.random()-0.5)*0.4;
+    r.castShadow = true; root.add(r);
+  }
+
+  // Barren-lot prop pile: crates, pallets, barrels, cones, sandbag nest at intersection corners
+  const crateMat = new THREE.MeshStandardMaterial({ map:woodTex, color:0x7a5a2a, roughness:0.9 });
+  for (let i=0;i<8;i++){
+    const cx = (Math.random()<0.5 ? -1 : 1)*(9+Math.random()*8);
+    const cz = (Math.random()<0.5 ? -1 : 1)*(9+Math.random()*8);
+    const cs = 0.7 + Math.random()*0.5;
+    const c = new THREE.Mesh(new THREE.BoxGeometry(cs, cs, cs), crateMat);
+    c.position.set(cx, cs/2, cz); c.rotation.y = Math.random()*Math.PI; c.castShadow = true; root.add(c);
+    if (Math.random()<0.4){
+      const c2 = new THREE.Mesh(new THREE.BoxGeometry(cs*0.8, cs*0.7, cs*0.8), crateMat);
+      c2.position.set(cx + (Math.random()-0.5)*0.9, cs + cs*0.35, cz + (Math.random()-0.5)*0.9);
+      c2.rotation.y = Math.random()*Math.PI; c2.castShadow = true; root.add(c2);
+    }
+  }
+  for (let i=0;i<7;i++){
+    const tx = (Math.random()<0.5 ? -1 : 1)*(46+Math.random()*30);
+    const tz = (Math.random()<0.5 ? -1 : 1)*(30+Math.random()*40);
+    const r = 0.34 + Math.random()*0.1;
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 1.1, 9),
+      new THREE.MeshStandardMaterial({ color: Math.random()<0.5 ? 0xccaa22 : 0x7a4a2a, roughness:0.6, metalness:0.4 }));
+    drum.position.set(tx, 0.55, tz); drum.castShadow = true; root.add(drum);
+    if (i%3===0) state.collidables.push({ isStatic:true, getBounds:()=>({ minX:tx-r, maxX:tx+r, minZ:tz-r, maxZ:tz+r, minY:0, maxY:1.1 }) });
+  }
+  // Jersey barriers along the roads
+  const jerseyMat = new THREE.MeshStandardMaterial({ color:0xcfcfcf, roughness:0.8 });
+  for (let i=-3;i<=3;i++){
+    if (i===0) continue;
+    const b1 = new THREE.Mesh(new THREE.BoxGeometry(3, 0.9, 0.5), jerseyMat);
+    b1.position.set(4.4, 0.45, i*9); b1.castShadow = true; root.add(b1);
+    state.collidables.push({ isStatic:true, getBounds:()=>({ minX:4.4-1.5, maxX:4.4+1.5, minZ:i*9-0.3, maxZ:i*9+0.3, minY:0, maxY:0.9 }) });
+    const b2 = new THREE.Mesh(new THREE.BoxGeometry(3, 0.9, 0.5), jerseyMat);
+    b2.position.set(-4.4, 0.45, i*9); b2.castShadow = true; root.add(b2);
+    state.collidables.push({ isStatic:true, getBounds:()=>({ minX:-5.9, maxX:-2.9, minZ:i*9-0.3, maxZ:i*9+0.3, minY:0, maxY:0.9 }) });
+  }
+  for (let i=-3;i<=3;i++){
+    if (i===0) continue;
+    const v1 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 3), jerseyMat);
+    v1.position.set(i*9, 0.45, 4.4); v1.castShadow = true; root.add(v1);
+    const v2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 3), jerseyMat);
+    v2.position.set(i*9, 0.45, -4.4); v2.castShadow = true; root.add(v2);
+  }
+  // Traffic cones
+  const coneMat = new THREE.MeshStandardMaterial({ color:0xcc5522, roughness:0.6 });
+  [[-6,-6],[6,6],[-8,18],[18,-8],[8,8],[-18,-16]].forEach(([cx,cz]) => {
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.75, 8), coneMat);
+    cone.position.set(cx, 0.4, cz); cone.castShadow = true; root.add(cone);
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.75,0.06,0.75), coneMat);
+    base.position.set(cx, 0.03, cz); root.add(base);
+  });
+
+  // Power poles + sagging lines across the far lots
+  [[42,-42],[-42,42],[44,0],[-44,0],[0,44],[0,-44]].forEach(([px,pz]) => {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.18,9,7), mats.wood);
+    pole.position.set(px, 4.5, pz); pole.castShadow = true; root.add(pole);
+    const xArm = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.09, 0.12), mats.wood);
+    xArm.position.set(px, 8.6, pz); root.add(xArm);
+    const zArm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.09, 2.8), mats.wood);
+    zArm.position.set(px, 8.4, pz); root.add(zArm);
+    const wireMat = new THREE.MeshStandardMaterial({ color:0x222222, roughness:0.7 });
+    const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.015, 4.2, 5), wireMat);
+    wire.position.set(px + 1.3, 7.3, pz - 4.2/2); wire.rotation.x = 0.5; root.add(wire);
+    const wire2 = new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.015, 4.2, 5), wireMat);
+    wire2.position.set(px - 1.3, 7.3, pz - 4.2/2); wire2.rotation.x = 0.5; root.add(wire2);
+    state.collidables.push({ isStatic:true, getBounds:()=>({ minX:px-0.2, maxX:px+0.2, minZ:pz-0.2, maxZ:pz+0.2, minY:0, maxY:9 }) });
+  });
+
+  // Street lamps (warm glow)
+  for (let i=0;i<8;i++){
+    const a = (i/8)*Math.PI*2;
+    const r = 22;
+    const lx = Math.sin(a)*r, lz = Math.cos(a)*r;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.15,4.5,8), mats.metal);
+    pole.position.set(lx, 2.25, lz); pole.castShadow = true; root.add(pole);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(1.6,0.09,0.09), mats.metal);
+    arm.position.set(lx, 4.4, lz); arm.rotation.y = -a; root.add(arm);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.35,0.25),
+      new THREE.MeshStandardMaterial({ color:0xffcc66, emissive:0xffaa33, emissiveIntensity:0.9 }));
+    head.position.set(lx + Math.sin(-a)*0.8, 4.55, lz + Math.cos(-a)*0.8); root.add(head);
+    const halo = new THREE.Mesh(new THREE.CircleGeometry(1.5, 16),
+      new THREE.MeshStandardMaterial({ color:0xffaa33, emissive:0xffaa33, emissiveIntensity:0.4, transparent:true, opacity:0.18, depthWrite:false }));
+    halo.rotation.x = -Math.PI/2; halo.position.set(lx + Math.sin(-a)*0.8, 0.02, lz + Math.cos(-a)*0.8); root.add(halo);
+  }
+
+  // Trees — layered trunk + stacked foliage cones (perimeter ring)
   function makeTree(tx, tz, pine){
     const g = new THREE.Group();
     const trunkMat = new THREE.MeshStandardMaterial({ color:0x5a3a1a, roughness:0.95 });
@@ -2707,7 +2985,6 @@ function buildTownMap(){
         cone.castShadow = true; g.add(cone);
       }
     } else {
-      // round leafy tree: 3 blobs
       const sizes = [[1.5,1.2,1.5],[1.1,0.9,1.1],[0.8,0.7,0.8]];
       const ys = [3.2,4.1,4.9];
       for (let i=0;i<sizes.length;i++){
@@ -2727,113 +3004,13 @@ function buildTownMap(){
     const dist = 40 + Math.random()*15;
     makeTree(Math.sin(a)*dist, Math.cos(a)*dist, Math.random() < 0.5);
   }
-
-  // Sidewalks along the roads
-  function makeSidewalk(x, z, len, horiz){
-    const s = new THREE.Mesh(new THREE.BoxGeometry(horiz ? len : 2.4, 0.12, horiz ? 2.4 : len), mats.concrete);
-    s.position.set(x, 0.06, z); s.receiveShadow = true; root.add(s);
-  }
-  makeSidewalk(-5.4, 0, 200, false); makeSidewalk(5.4, 0, 200, false);
-  makeSidewalk(0, -5.4, 200, true);  makeSidewalk(0, 5.4, 200, true);
-  // Crosswalk stripes at the intersection
-  const stripeMat = new THREE.MeshStandardMaterial({ color:0xdddddd, roughness:0.85 });
-  for (let i=0;i<4;i++){
-    const sx = -3.5 + i*2.2;
-    const s1 = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.02,2), stripeMat);
-    s1.position.set(sx, 0.04, -4.6); s1.receiveShadow = true; root.add(s1);
-    const s2 = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.02,2), stripeMat);
-    s2.position.set(sx, 0.04, 4.6); s2.receiveShadow = true; root.add(s2);
-  }
-
-  // Parked cars — cover props with collision
-  const carColors = [0x8a1a1a, 0x1a3a8a, 0x8a8a8a, 0xcfc858, 0x2a6a2a];
-  function makeCar(x, z, rot){
-    const g = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({ color:carColors[Math.floor(Math.random()*carColors.length)], metalness:0.6, roughness:0.4 });
-    const glassMat = new THREE.MeshStandardMaterial({ color:0x334455, roughness:0.15, metalness:0.3 });
-    const wheelMat = new THREE.MeshStandardMaterial({ color:0x1a1a1a, roughness:0.9 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.6,0.5,3.6), bodyMat);
-    body.position.y = 0.55; body.castShadow = true; g.add(body);
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.4,0.5,1.8), glassMat);
-    cabin.position.set(-0.1, 0.95, -0.2); cabin.castShadow = true; g.add(cabin);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(1.5,0.08,1.9), bodyMat);
-    roof.position.set(-0.1,1.2,-0.2); g.add(roof);
-    const hood = new THREE.Mesh(new THREE.BoxGeometry(1.5,0.14,0.9), bodyMat);
-    hood.position.set(0, 0.72, 1.5); hood.castShadow = true; g.add(hood);
-    const trunkP = new THREE.Mesh(new THREE.BoxGeometry(1.5,0.14,0.9), bodyMat);
-    trunkP.position.set(0, 0.7, -1.5); trunkP.castShadow = true; g.add(trunkP);
-    [[-0.7,0.55],[0.7,0.55],[-0.7,-0.55],[0.7,-0.55]].forEach(([wx,wz]) => {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,0.22,10), wheelMat);
-      wheel.rotation.z = Math.PI/2;
-      wheel.position.set(wx, 0.34, wz); wheel.castShadow = true; g.add(wheel);
-    });
-    g.position.set(x, 0, z);
-    g.rotation.y = rot;
-    root.add(g);
-    state.collidables.push({ isStatic:true, getBounds:() => {
-      const cos = Math.cos(rot), sin = Math.sin(rot);
-      const rx = Math.abs(cos*1.9)+Math.abs(sin*0.85);
-      const rz = Math.abs(sin*1.9)+Math.abs(cos*0.85);
-      return { minX:x-rx, maxX:x+rx, minZ:z-rz, maxZ:z+rz, minY:0, maxY:1.5 };
-    }});
-  }
-  makeCar(-4.2, -18, Math.PI/2);
-  makeCar(4.2, -28, Math.PI/2);
-  makeCar(-4.2, 22, Math.PI/2);
-  makeCar(4.2, 32, Math.PI/2);
-  makeCar(0, 40, 0);
-  makeCar(0, -42, 0);
-
-  // Dumpsters
-  function makeDumpster(x, z, rot){
-    const g = new THREE.Group();
-    const dMat = new THREE.MeshStandardMaterial({ color:0x2f6b2f, metalness:0.4, roughness:0.7 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.2,0.9,1.8), dMat);
-    body.position.y = 0.45; body.castShadow = true; g.add(body);
-    const lid = new THREE.Mesh(new THREE.BoxGeometry(1.22,0.08,0.9), new THREE.MeshStandardMaterial({ color:0x245a24, roughness:0.7 }));
-    lid.position.set(0, 0.95, 0.3); lid.castShadow = true; g.add(lid);
-    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.06,0.9), new THREE.MeshStandardMaterial({ color:0x3a3a3a }));
-    handle.position.set(-0.6, 0.75, 0); g.add(handle);
-    g.position.set(x, 0, z); g.rotation.y = rot;
-    root.add(g);
-    state.collidables.push({ isStatic:true, getBounds:() => ({ minX:x-0.75, maxX:x+0.75, minZ:z-1.1, maxZ:z+1.1, minY:0, maxY:1.4 }) });
-  }
-  makeDumpster(-10, -12, 0.5);
-  makeDumpster(12, 10, -0.4);
-  makeDumpster(-4.5, 12, Math.PI/2);
-
-  // Mailboxes
-  function makeMailbox(x, z){
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.9,6), mats.metal);
-    post.position.set(x, 0.45, z); post.castShadow = true; root.add(post);
-    const box = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.35,0.22), new THREE.MeshStandardMaterial({ color:0x2a3a8a, roughness:0.5 }));
-    box.position.set(x, 1.0, z); box.castShadow = true; root.add(box);
-  }
-  makeMailbox(-5.2, 6);
-  makeMailbox(5.2, -10);
-
-  // Rubble
-  for (let i=0;i<60;i++){
-    const x = (Math.random()-0.5)*90;
-    const z = (Math.random()-0.5)*90;
-    const s = 0.4 + Math.random()*0.8;
-    const colors = [0x6a6a6a, 0x5a4a3a, 0x4a4a4a];
-    const r = new THREE.Mesh(new THREE.BoxGeometry(s, s*0.6, s),
-      new THREE.MeshStandardMaterial({ color:colors[Math.floor(Math.random()*3)], roughness:0.95 }));
-    r.position.set(x, s*0.3, z); r.rotation.y = Math.random()*Math.PI;
-    r.castShadow = true; root.add(r);
-  }
-  
-  // Street lamps
-  for (let i=0;i<8;i++){
-    const a = (i/8)*Math.PI*2;
-    const r = 22;
-    const lx = Math.sin(a)*r, lz = Math.cos(a)*r;
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.15,4.5,8), mats.metal);
-    pole.position.set(lx, 2.25, lz); pole.castShadow = true; root.add(pole);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.35,0.6),
-      new THREE.MeshStandardMaterial({ color:0xffcc66, emissive:0xffaa33, emissiveIntensity:0.8 }));
-    head.position.set(lx, 4.6, lz); root.add(head);
+  // Bushes + bloom flowers around lots
+  const bushMat = new THREE.MeshStandardMaterial({ color:0x3a6a2a, roughness:1, flatShading:true });
+  for (let i=0;i<20;i++){
+    const s = 0.4 + Math.random()*0.6;
+    const bush = new THREE.Mesh(new THREE.SphereGeometry(s, 6, 5), bushMat);
+    bush.position.set((Math.random()-0.5)*170, s*0.45, (Math.random()-0.5)*170);
+    bush.scale.y = 0.6; bush.castShadow = true; root.add(bush);
   }
 }
 
@@ -2841,42 +3018,172 @@ function buildArenaMap(){
   const root = new THREE.Group();
   scene.add(root);
   state.mapRoot = root;
-  
+
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), mats.concrete);
   ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; root.add(ground);
-  
-  // Arena ring pillars — with crenellated tops
+
   const pillarMat = new THREE.MeshStandardMaterial({ map:concreteTex, color:0x9a9a9a, roughness:0.9 });
-  const rebarMat = new THREE.MeshStandardMaterial({ color:0x7a5a2a, metalness:0.8, roughness:0.5 });
+  const pillDark  = new THREE.MeshStandardMaterial({ map:stoneTex, color:0x7a7268, roughness:0.95 });
+  const rebarMat  = new THREE.MeshStandardMaterial({ color:0x7a5a2a, metalness:0.8, roughness:0.5 });
+  const dirtMat   = new THREE.MeshStandardMaterial({ map:stoneTex, color:0x6a5a44, roughness:1 });
+  const bloodMat  = new THREE.MeshStandardMaterial({ color:0x5a1210, transparent:true, opacity:0.5, roughness:1, depthWrite:false });
+  const chalkMat  = new THREE.MeshStandardMaterial({ color:0xd8d0c0, roughness:0.9 });
+  const hazardMat = new THREE.MeshStandardMaterial({ color:0xccaa22, roughness:0.5 });
+  const flameMat  = new THREE.MeshStandardMaterial({ color:0xff8833, emissive:0xff6622, emissiveIntensity:2.2 });
+  const bannerMat = new THREE.MeshStandardMaterial({ color:0x8a2424, roughness:0.8, side:THREE.DoubleSide });
+
+  // Worn arena floor — dirt scuffs + blood stains + center ring
+  for (let i=0;i<40;i++){
+    const a = Math.random()*Math.PI*2, r = 10 + Math.random()*33;
+    const d = new THREE.Mesh(new THREE.PlaneGeometry(4+Math.random()*8, 4+Math.random()*8), dirtMat);
+    d.rotation.x = -Math.PI/2; d.rotation.z = Math.random()*Math.PI;
+    d.position.set(Math.sin(a)*r + (Math.random()-0.5)*6, 0.02, Math.cos(a)*r + (Math.random()-0.5)*6);
+    root.add(d);
+  }
+  for (let i=0;i<18;i++){
+    const a = Math.random()*Math.PI*2, r = 8 + Math.random()*30;
+    const b = new THREE.Mesh(new THREE.PlaneGeometry(2+Math.random()*4, 2+Math.random()*4), bloodMat);
+    b.rotation.x = -Math.PI/2; b.rotation.z = Math.random()*Math.PI;
+    b.position.set(Math.sin(a)*r, 0.03, Math.cos(a)*r);
+    root.add(b);
+  }
+  const ring = new THREE.Mesh(new THREE.RingGeometry(11, 11.6, 40), chalkMat);
+  ring.rotation.x = -Math.PI/2; ring.position.y = 0.045; root.add(ring);
+  for (let i=0;i<40;i++){
+    const a0 = (i/40)*Math.PI*2;
+    const c = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.02, 0.5), chalkMat);
+    c.position.set(Math.sin(a0)*18.5, 0.05, Math.cos(a0)*18.5); c.rotation.y = a0; root.add(c);
+  }
+
+  // Arena ring pillars — crenellated, torch-lit, benches at base
+  const gates = new Set([6, 12, 18, 24].map(n => n-1));
   for (let i=0;i<24;i++){
     const a = (i/24)*Math.PI*2;
     const r = 45;
     const x = Math.sin(a)*r, z = Math.cos(a)*r;
-    const pillar = new THREE.Mesh(new THREE.BoxGeometry(2, 6, 2), pillarMat);
-    pillar.position.set(x, 3, z); pillar.rotation.y = -a; pillar.castShadow = true;
-    root.add(pillar);
-    // crenellation blocks on top
+    const pillar = new THREE.Mesh(new THREE.BoxGeometry(2.4, 6, 2.4), pillarMat);
+    pillar.position.set(x, 3, z); pillar.rotation.y = -a; pillar.castShadow = true; root.add(pillar);
     for (let b=-1;b<=1;b+=2){
-      const cren = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.7,2), pillarMat);
-      cren.position.set(x + b*0.45, 6.4, z); cren.castShadow = true; root.add(cren);
-      const cren2 = new THREE.Mesh(new THREE.BoxGeometry(2,0.7,0.5), pillarMat);
-      cren2.position.set(x, 6.4, z + b*0.45); cren2.castShadow = true; root.add(cren2);
+      const cren = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.7,2.4), pillDark);
+      cren.position.set(x + b*0.5, 6.4, z); cren.castShadow = true; root.add(cren);
+      const cren2 = new THREE.Mesh(new THREE.BoxGeometry(2.4,0.7,0.55), pillDark);
+      cren2.position.set(x, 6.4, z + b*0.5); cren2.castShadow = true; root.add(cren2);
     }
-    // broken bench at base
     const bench = new THREE.Mesh(new THREE.BoxGeometry(2.6,0.4,0.8), mats.wood);
     bench.position.set(x + Math.cos(a)*2.2, 0.2, z + Math.sin(a)*2.2);
     bench.rotation.y = -a; bench.castShadow = true; root.add(bench);
-    state.collidables.push({ isStatic:true, getBounds:()=>({ minX:x-1, maxX:x+1, minZ:z-1, maxZ:z+1, minY:0, maxY:6 }) });
+    // torch on every 4th pillar
+    if (i % 4 === 0){
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.08,2.6,6), mats.metal);
+      pole.position.set(x + Math.cos(a)*1.5, 1.3, z + Math.sin(a)*1.5); root.add(pole);
+      const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.2,0.22,8), mats.metal);
+      bowl.position.set(x + Math.cos(a)*1.5, 2.55, z + Math.sin(a)*1.5); root.add(bowl);
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(0.14,0.55,8), flameMat);
+      flame.position.set(x + Math.cos(a)*1.5, 2.9, z + Math.sin(a)*1.5); root.add(flame);
+      if (i % 12 === 0){
+        const tl = new THREE.PointLight(0xff8833, 1.1, 26);
+        tl.position.set(x + Math.cos(a)*1.5, 3.4, z + Math.sin(a)*1.5); root.add(tl);
+      }
+    }
+    state.collidables.push({ isStatic:true, getBounds:()=>({ minX:x-1.2, maxX:x+1.2, minZ:z-1.2, maxZ:z+1.2, minY:0, maxY:6 }) });
+
+    // low connecting wall ring, broken at the 4 gates
+    const next = (i+1)%24, an = (next/24)*Math.PI*2;
+    const nx = Math.sin(an)*r, nz = Math.cos(an)*r;
+    const mx = (x+nx)/2, mz = (z+nz)/2, dist = Math.sqrt((nx-x)**2+(nz-z)**2);
+    if (!gates.has(i) && !gates.has(next)){
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(dist, 3.4, 0.8), pillDark);
+      wall.position.set(mx, 1.7, mz); wall.rotation.y = -an; wall.castShadow = true; root.add(wall);
+      state.collidables.push({ isStatic:true, getBounds:()=>({ minX:Math.min(x,nx)-0.1, maxX:Math.max(x,nx)+0.1, minZ:Math.min(z,nz)-0.6, maxZ:Math.max(z,nz)+0.6, minY:0, maxY:3.4 }) });
+    }
+    // banner strip over gates
+    if (gates.has(next)){
+      const bp = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.2, 0.09), bannerMat);
+      bp.position.set(mx, 5.6, mz); bp.castShadow = true; root.add(bp);
+      const crimp = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.22, 0.14), mats.metal);
+      crimp.position.set(mx, 4.5, mz); root.add(crimp);
+    }
   }
-  
-  // Central platforms (unclimbable obstacles)
+
+  // Entry arch at each gate (open portcullis)
+  const gateList = [[0, 45], [-45, 0], [0, -45], [45, 0]];
+  gateList.forEach(([gx, gz]) => {
+    const along = Math.atan2(gz, gx);
+    for (const s of [-1, 1]){
+      const px = gx + Math.cos(along + Math.PI/2)*2.7, pz = gz + Math.sin(along + Math.PI/2)*2.7;
+      const post = new THREE.Mesh(new THREE.BoxGeometry(1.1, 5.5, 1.1), pillDark);
+      post.position.set(px, 2.75, pz); post.castShadow = true; root.add(post);
+      state.collidables.push({ isStatic:true, getBounds:()=>({ minX:px-0.6, maxX:px+0.6, minZ:pz-0.6, maxZ:pz+0.6, minY:0, maxY:5.5 }) });
+    }
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(6.6, 1, 1.2), pillDark);
+    lintel.position.set(gx, 5.7, gz); lintel.castShadow = true; root.add(lintel);
+    // portcullis rails
+    for (let b=-2;b<=2;b++){
+      const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,3.4,6), mats.metal);
+      rail.position.set(gx + Math.cos(along + Math.PI/2)*b*0.55, 1.7, gz + Math.sin(along + Math.PI/2)*b*0.55);
+      root.add(rail);
+    }
+  });
+
+  // Central platforms — broken stone pedestals with rebar + hazard tops
   const platforms = [[-20,-20,5],[20,-20,6],[-20,20,5],[20,20,6],[0,0,7]];
   platforms.forEach(([x,z,h]) => {
     const p = new THREE.Mesh(new THREE.BoxGeometry(6, h, 6), mats.concrete);
     p.position.set(x, h/2, z); p.castShadow = true; root.add(p);
+    const band = new THREE.Mesh(new THREE.BoxGeometry(6.1, 0.5, 6.1), hazardMat);
+    band.position.set(x, h + 0.25, z); root.add(band);
+    for (let i=0;i<4;i++){
+      const rb = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,1.2,6), rebarMat);
+      rb.position.set(x + (Math.random()-0.5)*4.6, h + 0.9, z + (Math.random()-0.5)*4.6);
+      rb.rotation.x = (Math.random()-0.5)*0.9; rb.rotation.z = (Math.random()-0.5)*0.9; root.add(rb);
+    }
+    // cracked corner chunk
+    const chip = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.9, 1.6), pillDark);
+    chip.position.set(x + (Math.random()<0.5?1:-1)*3.4, h - 0.45, z + (Math.random()<0.5?1:-1)*3.4);
+    chip.rotation.y = Math.random()*Math.PI; root.add(chip);
     state.collidables.push({ isStatic:true, getBounds:()=>({ minX:x-3, maxX:x+3, minZ:z-3, maxZ:z+3, minY:0, maxY:h }) });
   });
-  
+
+  // Colosseum props: barrels, crates, skull piles, broken weapons near gates
+  const crateMat = new THREE.MeshStandardMaterial({ map:woodTex, color:0x7a5a2a, roughness:0.9 });
+  const skullMat = new THREE.MeshStandardMaterial({ color:0xd8d0c0, roughness:0.6, flatShading:true });
+  for (let k=0;k<6;k++){
+    const a = Math.random()*Math.PI*2, r = 30 + Math.random()*10;
+    const tx = Math.sin(a)*r, tz = Math.cos(a)*r;
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,1.15,9), Math.random()<0.5?hazardMat:rebarMat);
+    drum.position.set(tx, 0.58, tz); drum.castShadow = true; root.add(drum);
+  }
+  for (let k=0;k<5;k++){
+    const a = Math.random()*Math.PI*2, r = 28 + Math.random()*12;
+    const cx = Math.sin(a)*r, cz = Math.cos(a)*r;
+    const boxS = 0.8 + Math.random()*0.4;
+    const c = new THREE.Mesh(new THREE.BoxGeometry(boxS, boxS, boxS), crateMat);
+    c.position.set(cx, boxS/2, cz); c.rotation.y = Math.random()*Math.PI; c.castShadow = true; root.add(c);
+  }
+  for (let k=0;k<8;k++){
+    const a = Math.random()*Math.PI*2, r = 24 + Math.random()*18;
+    const sx = Math.sin(a)*r, sz = Math.cos(a)*r;
+    const pile = new THREE.Group();
+    for (let s=0;s<3+Math.floor(Math.random()*3);s++){
+      const sk = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), skullMat);
+      sk.position.set((Math.random()-0.5)*0.6, 0.12 + Math.random()*0.25, (Math.random()-0.5)*0.6);
+      sk.scale.y = 0.85; sk.rotation.set(Math.random(), Math.random(), Math.random()); pile.add(sk);
+    }
+    pile.position.set(sx, 0, sz); root.add(pile);
+  }
+  // sandbag nests + a broken gladiator spear
+  for (let k=0;k<6;k++){
+    const a = Math.random()*Math.PI*2, r = 26 + Math.random()*14;
+    const sx = Math.sin(a)*r, sz = Math.cos(a)*r;
+    for (let ly=0;ly<2;ly++){
+      const sb = new THREE.Mesh(new THREE.BoxGeometry(1.5,0.55,0.8), Math.random()<0.5?pillDark:rebarMat);
+      sb.position.set(sx, 0.28+ly*0.55, sz); sb.rotation.y = Math.random()*Math.PI; sb.castShadow = true; root.add(sb);
+    }
+    const spear = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,1.8,6), mats.metal);
+    spear.position.set(sx + (Math.random()-0.5), 0.9, sz + (Math.random()-0.5));
+    spear.rotation.z = 0.5; spear.castShadow = true; root.add(spear);
+  }
+
   state.rooftopZones = [];
 }
 
@@ -2884,24 +3191,79 @@ function buildRuinsMap(){
   const root = new THREE.Group();
   scene.add(root);
   state.mapRoot = root;
-  
+
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), mats.grass);
   ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; root.add(ground);
-  
-  // Random ruined walls — jagged tops + bent rebar
-  const rebarMat = new THREE.MeshStandardMaterial({ color:0x7a5a2a, metalness:0.8, roughness:0.5 });
+
+  const rebarMat  = new THREE.MeshStandardMaterial({ color:0x7a5a2a, metalness:0.8, roughness:0.5 });
+  const rubbleMat = new THREE.MeshStandardMaterial({ map:stoneTex, color:0x8a8a8a, roughness:0.95 });
+  const mossMat   = new THREE.MeshStandardMaterial({ color:0x3a6a2a, roughness:1 });
+  const dirtMat   = new THREE.MeshStandardMaterial({ map:stoneTex, color:0x55442f, roughness:1 });
+  const vineMat   = new THREE.MeshStandardMaterial({ color:0x2f5520, roughness:1 });
+  const boneMat   = new THREE.MeshStandardMaterial({ color:0xd8d0c0, roughness:0.6, flatShading:true });
+
+  // Overgrown meadow — dirt clumps, tufts, ferns
+  for (let i=0;i<60;i++){
+    const a = Math.random()*Math.PI*2, r = 6 + Math.random()*90;
+    const d = new THREE.Mesh(new THREE.PlaneGeometry(3+Math.random()*7, 3+Math.random()*7), dirtMat);
+    d.rotation.x = -Math.PI/2; d.rotation.z = Math.random()*Math.PI;
+    d.position.set(Math.sin(a)*r + (Math.random()-0.5)*4, 0.02, Math.cos(a)*r + (Math.random()-0.5)*4);
+    root.add(d);
+  }
+  const fernMat = new THREE.MeshStandardMaterial({ color:0x2f5a22, roughness:1, transparent:true, opacity:0.9, side:THREE.DoubleSide });
+  for (let i=0;i<80;i++){
+    const a = Math.random()*Math.PI*2, r = 4 + Math.random()*95;
+    const fx = Math.sin(a)*r, fz = Math.cos(a)*r;
+    const tuft = new THREE.Group();
+    for (let b=0;b<4;b++){
+      const blade = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.5+Math.random()*0.6), fernMat);
+      blade.position.set((Math.random()-0.5)*0.3, 0.25, (Math.random()-0.5)*0.3);
+      blade.rotation.y = Math.random()*Math.PI; blade.rotation.x = (Math.random()-0.5)*0.2; tuft.add(blade);
+    }
+    tuft.position.set(fx, 0, fz); root.add(tuft);
+  }
+
+  // Creek across the middle with a stone bridge
+  const waterMat = new THREE.MeshStandardMaterial({ color:0x2a5f6a, transparent:true, opacity:0.85, roughness:0.35, metalness:0.1 });
+  const creek = new THREE.Mesh(new THREE.BoxGeometry(6, 0.12, 160), waterMat);
+  creek.position.set(0, 0.05, 0); root.add(creek);
+  const mudL = new THREE.Mesh(new THREE.BoxGeometry(6.6, 0.05, 160), dirtMat);
+  mudL.position.set(-3.3, 0.01, 0); root.add(mudL);
+  const mudR = new THREE.Mesh(new THREE.BoxGeometry(6.6, 0.05, 160), dirtMat);
+  mudR.position.set(3.3, 0.01, 0); root.add(mudR);
+  // arched bridge
+  const spanMat = new THREE.MeshStandardMaterial({ map:stoneTex, color:0x9a948c, roughness:0.95 });
+  for (let t=0;t<6;t++){
+    const ty = Math.sin((t/5)*Math.PI) * 1.6;
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.2, 1.4), mats.wood);
+    plank.position.set(0, 0.1 + ty, (t/5)*10 - 5);
+    plank.rotation.x = (Math.cos((t/5)*Math.PI)) * 0.18;
+    plank.castShadow = true; root.add(plank);
+    state.collidables.push({ isStatic:true, getBounds:()=>({ minX:-2.4, maxX:2.4, minZ:(t/5)*10-5.8, maxZ:(t/5)*10-4.2, minY:0, maxY:2.2 }) });
+  }
+  for (const s of [-1, 1]){
+    const railPost = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1, 0.18), rubbleMat);
+    railPost.position.set(s*2.1, 0.6, -5.5); root.add(railPost);
+    const railPost2 = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1, 0.18), rubbleMat);
+    railPost2.position.set(s*2.1, 0.6, 5.5); root.add(railPost2);
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 11), mats.wood);
+    rail.position.set(s*2.1, 1.05, 0); root.add(rail);
+  }
+
+  // Random ruined walls — jagged tops, vines + bent rebar
   for (let i=0;i<40;i++){
     const x = (Math.random()-0.5)*70;
     const z = (Math.random()-0.5)*70;
     if (Math.abs(x)<5 && Math.abs(z)<5) continue;
+    if (Math.abs(x)<3.4 && Math.abs(z)<14) continue;
     const w = 2 + Math.random()*4;
     const h = 2 + Math.random()*3;
     const rot = Math.random() > 0.5 ? 0 : Math.PI/2;
     const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.6), mats.brick);
     wall.position.set(x, h/2, z); wall.rotation.y = rot;
     wall.castShadow = true; wall.receiveShadow = true; root.add(wall);
-    
-    // Jagged broken top — a few chunks of varying heights
+    const moss = new THREE.Mesh(new THREE.BoxGeometry(w, h*0.7, 0.62), mossMat);
+    moss.position.set(x, h*0.15, z); moss.rotation.y = rot; root.add(moss);
     const chunks = 2 + Math.floor(Math.random()*3);
     for (let ci=0; ci<chunks; ci++){
       const cw = 0.4 + Math.random()*0.5;
@@ -2911,40 +3273,41 @@ function buildRuinsMap(){
       chunk.position.set(rot===0 ? x + off : x, h + ch/2, rot===0 ? z : z + off);
       chunk.rotation.y = rot; chunk.castShadow = true; root.add(chunk);
     }
-    // Bent rebar sticking out of the top
     const rebar = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03, 0.8+Math.random()*0.6, 5), rebarMat);
     rebar.position.set(rot===0 ? x + (Math.random()-0.5)*w*0.6 : x, h + 0.5, rot===0 ? z : z + (Math.random()-0.5)*w*0.6);
     rebar.rotation.x = (Math.random()-0.5)*1.2; rebar.rotation.z = (Math.random()-0.5)*1.2;
     rebar.castShadow = true; root.add(rebar);
-    
+    // vine creepers
+    if (Math.random() < 0.7){
+      const vine = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.06,h,4), vineMat);
+      vine.position.set(rot===0 ? x + w/2 - 0.1 : x - 0.1, h/2, rot===0 ? z + 0.2 : z + w/2 - 0.1);
+      vine.scale.y = 0.8 + Math.random()*0.4; root.add(vine);
+    }
     let minX, maxX, minZ, maxZ;
     if (rot === 0){ minX=x-w/2; maxX=x+w/2; minZ=z-0.3; maxZ=z+0.3; }
     else { minX=x-0.3; maxX=x+0.3; minZ=z-w/2; maxZ=z+w/2; }
     state.collidables.push({ isStatic:true, getBounds:()=>({ minX, maxX, minZ, maxZ, minY:0, maxY:h }) });
   }
-  
-  // Debris piles / fallen slabs
-  const rubbleMat = new THREE.MeshStandardMaterial({ map:stoneTex, color:0x8a8a8a, roughness:0.95 });
+
+  // Debris piles, fallen slabs, rebar bundles
   for (let i=0;i<35;i++){
     const x = (Math.random()-0.5)*80;
     const z = (Math.random()-0.5)*80;
+    if (Math.abs(x)<7 && Math.abs(z)<7) continue;
     const s = 0.5 + Math.random()*1.4;
     const typ = Math.random();
     if (typ < 0.35){
-      // fallen slab
       const slab = new THREE.Mesh(new THREE.BoxGeometry(s, 0.35, s*0.8), rubbleMat);
       slab.position.set(x, 0.2, z); slab.rotation.y = Math.random()*Math.PI;
       slab.rotation.x = (Math.random()-0.5)*0.5; slab.rotation.z = (Math.random()-0.5)*0.5;
       slab.castShadow = true; root.add(slab);
     } else if (typ < 0.7){
-      // stacked debris — 2 boxes
       const d1 = new THREE.Mesh(new THREE.BoxGeometry(s, s*0.4, s*0.7), rubbleMat);
       d1.position.set(x, s*0.2, z); d1.rotation.y = Math.random()*Math.PI; d1.castShadow = true; root.add(d1);
       const d2 = new THREE.Mesh(new THREE.BoxGeometry(s*0.7, s*0.4, s*0.5), mats.brick);
       d2.position.set(x + (Math.random()-0.5)*0.5, s*0.5, z + (Math.random()-0.5)*0.5);
       d2.rotation.y = Math.random()*Math.PI; d2.castShadow = true; root.add(d2);
     } else {
-      // rebar bundle
       const bundle = new THREE.Group();
       for (let r=0; r<5; r++){
         const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04, s*0.8, 5), rebarMat);
@@ -2957,8 +3320,8 @@ function buildRuinsMap(){
     }
     state.collidables.push({ isStatic:true, getBounds:()=>({ minX:x-1.2, maxX:x+1.2, minZ:z-1.2, maxZ:z+1.2, minY:0, maxY:1.6 }) });
   }
-  
-  // A few tall ruined towers (unclimbable obstacles)
+
+  // Tall ruined towers with broken crowns + hanging vines
   for (let i=0;i<3;i++){
     const angle = (i/3) * Math.PI * 2 + 0.3;
     const dist = 20;
@@ -2966,9 +3329,83 @@ function buildRuinsMap(){
     const h = 6 + i;
     const tower = new THREE.Mesh(new THREE.BoxGeometry(5, h, 5), mats.stone);
     tower.position.set(x, h/2, z); tower.castShadow = true; root.add(tower);
+    const moss = new THREE.Mesh(new THREE.BoxGeometry(5.1, h*0.6, 5.1), mossMat);
+    moss.position.set(x, h*0.2, z); root.add(moss);
+    // broken crown
+    for (let b=0;b<3;b++){
+      const cb = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.8+Math.random(), 1.7), rubbleMat);
+      cb.position.set(x + (b-1)*1.8, h + 0.4 + Math.random()*0.5, z + (Math.random()-0.5)*2);
+      cb.rotation.y = Math.random()*Math.PI; cb.castShadow = true; root.add(cb);
+    }
+    for (let v=0;v<2+Math.floor(Math.random()*2);v++){
+      const vine = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.08,h,4), vineMat);
+      vine.position.set(x + (Math.random()-0.5)*4, h/2, z + (Math.random()-0.5)*4);
+      root.add(vine);
+    }
     state.collidables.push({ isStatic:true, getBounds:()=>({ minX:x-2.5, maxX:x+2.5, minZ:z-2.5, maxZ:z+2.5, minY:0, maxY:h }) });
   }
-  
+
+  // Fallen columns + obelisk + broken statue in the ruin square
+  for (let i=0;i<6;i++){
+    const a = (i/6)*Math.PI*2;
+    const cx = Math.sin(a)*14, cz = Math.cos(a)*14;
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.85, 5.5, 10), rubbleMat);
+    col.position.set(cx, 1.1, cz);
+    col.rotation.z = Math.PI/2 - 0.25; col.rotation.y = Math.random()*Math.PI;
+    col.castShadow = true; root.add(col);
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.5, 1.4), rubbleMat);
+    cap.position.set(cx + (Math.random()<0.5?1:-1)*2, 0.35, cz + (Math.random()<0.5?1:-1)*1);
+    cap.rotation.y = Math.random()*Math.PI; root.add(cap);
+    state.collidables.push({ isStatic:true, getBounds:()=>({ minX:cx-1, maxX:cx+1, minZ:cz-1, maxZ:cz+1, minY:0, maxY:2 }) });
+  }
+  const obelisk = new THREE.Mesh(new THREE.BoxGeometry(1.6, 8, 1.6), rubbleMat);
+  obelisk.position.set(0, 4, -16); obelisk.castShadow = true; root.add(obelisk);
+  for (let i=0;i<3;i++){
+    const crack = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.1, 1.62), mossMat);
+    crack.position.set(0, 1.5 + i*2, -16); root.add(crack);
+  }
+  state.collidables.push({ isStatic:true, getBounds:()=>({ minX:-0.9, maxX:0.9, minZ:-16.9, maxZ:-15.1, minY:0, maxY:8 }) });
+  // headless statue + rubble
+  const statue = new THREE.Group();
+  statue.add(new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.2, 0.9), rubbleMat));
+  statue.add(new THREE.Mesh(new THREE.SphereGeometry(0.55, 8, 6), rubbleMat).translateY(2.8));
+  const base = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.9, 1.8), rubbleMat);
+  base.position.set(0, -1.55, 0); statue.add(base);
+  statue.position.set(9, 0, 13); statue.rotation.y = 0.7; root.add(statue);
+  state.collidables.push({ isStatic:true, getBounds:()=>({ minX:8, maxX:10.2, minZ:11.6, maxZ:14.4, minY:0, maxY:3.5 }) });
+
+  // West campfire + resting spot
+  const firePit = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 0.35, 10), rubbleMat);
+  firePit.position.set(-18, 0.18, 14); root.add(firePit);
+  const logA = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 1.6, 6), mats.wood);
+  logA.position.set(-18, 0.25, 14); logA.rotation.x = Math.PI/2; root.add(logA);
+  const logB = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 1.2, 6), mats.wood);
+  logB.position.set(-17, 0.25, 13.2); logB.rotation.x = Math.PI/2; root.add(logB);
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.4), mats.wood);
+  seat.position.set(-18, 0.45, 15.2); seat.rotation.y = 0.4; root.add(seat);
+  const fflame = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.8, 8), new THREE.MeshStandardMaterial({ color:0xff8833, emissive:0xff5511, emissiveIntensity:2.5 }));
+  fflame.position.set(-18, 1, 14); root.add(fflame);
+  const fl = new THREE.PointLight(0xff8833, 0.9, 18); fl.position.set(-18, 1.5, 14); root.add(fl);
+  state.collidables.push({ isStatic:true, getBounds:()=>({ minX:-18.6, maxX:-17.4, minZ:13.4, maxZ:14.6, minY:0, maxY:0.5 }) });
+
+  // Bone piles + broken shields near the creek
+  for (let k=0;k<7;k++){
+    const a = Math.random()*Math.PI*2, r = 18 + Math.random()*25;
+    const bx = Math.sin(a)*r, bz = Math.cos(a)*r;
+    if (Math.abs(bx)<3.4 && Math.abs(bz)<14) continue;
+    const pile = new THREE.Group();
+    for (let s=0;s<4;s++){
+      const bone = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.7, 5), boneMat);
+      bone.position.set((Math.random()-0.5)*0.5, 0.12, (Math.random()-0.5)*0.5);
+      bone.rotation.x = Math.random()*Math.PI; bone.rotation.z = Math.random()*Math.PI; pile.add(bone);
+    }
+    for (let s=0;s<2;s++){
+      const sk = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), boneMat);
+      sk.position.set((Math.random()-0.5)*0.5, 0.15, (Math.random()-0.5)*0.5); pile.add(sk);
+    }
+    pile.position.set(bx, 0, bz); root.add(pile);
+  }
+
   state.rooftopZones = [];
 }
 
@@ -3142,6 +3579,73 @@ function buildZChurchMap(){
     const gx = Math.cos(a)*r, gz = Math.sin(a)*r - 4;
     const g = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.5, 0.25), stone2);
     g.position.set(gx, 0.75, gz); g.rotation.y = Math.random()*Math.PI; root.add(g);
+  }
+
+  // ============ ENRICHMENT: banners, organ, candelabras, racks, gargoyles ============
+  const bannerRed = new THREE.MeshStandardMaterial({ map:brickTex, color:0x8a2424, roughness:0.85, side:THREE.DoubleSide });
+  const goldMat = new THREE.MeshStandardMaterial({ color:0xd9b23a, metalness:0.85, roughness:0.3 });
+  const waxMat = new THREE.MeshStandardMaterial({ color:0xdfd0b0, roughness:0.5 });
+  const gargMat = new THREE.MeshStandardMaterial({ map:stoneTex, color:0x55545a, roughness:0.9, flatShading:true });
+  for (let s=-1;s<=1;s+=2){
+    for (let bz=0;bz<3;bz++){
+      const wx = NX + s*(naveW/2 - 0.1), wz = NZ - 5 + bz*7;
+      const banner = new THREE.Mesh(new THREE.BoxGeometry(0.12, 3.6, 2.4), bannerRed);
+      banner.position.set(wx, 5.0, wz); banner.castShadow = true; root.add(banner);
+      box(0.14, 0.18, 2.5, goldMat, wx, 3.25, wz, false);
+    }
+  }
+  // pipe organ on the north wall (right of the altar)
+  const organ = new THREE.Group();
+  const organBody = new THREE.Mesh(new THREE.BoxGeometry(4.6, 3, 1.2), darkWood);
+  organBody.position.set(0, 1.5, NZ - naveL/2 + 0.35); organ.add(organBody);
+  for (let p=0;p<7;p++){
+    const pl = new THREE.Mesh(new THREE.CylinderGeometry(0.07 + (p%2)*0.05, 0.1, 2 + (p%3)*0.5, 8), goldMat);
+    pl.position.set(-1.9 + p*0.6, 3.2 + (p%3)*0.45, NZ - naveL/2 + 0.3); organ.add(pl);
+  }
+  const kb = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.3, 1.0), woodMat);
+  kb.position.set(0.4, 1.0, NZ - naveL/2 + 0.9); organ.add(kb);
+  organ.position.set(NX + 5.6, 0, 0); root.add(organ);
+  state.collidables.push({ isStatic:true, getBounds:()=>({ minX:NX+3.4, maxX:NX+7.8, minZ:NZ-naveL/2, maxZ:NZ-naveL/2+1.1, minY:0, maxY:3 }) });
+  // candelabra stands flanking the altar beacon
+  for (let s=-1;s<=1;s+=2){
+    box(0.12, 2.3, 0.12, metalMat, NX + s*2.2, 1.15, NZ - naveL/2 + 0.7, true);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.08), metalMat);
+    arm.position.set(NX + s*2.2, 1.9, NZ - naveL/2 + 0.7 + s*0.3); root.add(arm);
+    for (let ca=0;ca<3;ca++){
+      const ccx = NX + s*2.2 - 0.2 + ca*0.2, ccz = NZ - naveL/2 + 0.7 + s*0.3;
+      const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.04,0.5,6), waxMat);
+      candle.position.set(ccx, 2.25, ccz); root.add(candle);
+      const cfl = new THREE.Mesh(new THREE.SphereGeometry(0.06,6,5), glowMat);
+      cfl.position.set(ccx, 2.55, ccz); root.add(cfl);
+    }
+  }
+  // weapon rack by the doorway (left inside)
+  box(0.12, 2.2, 0.12, darkWood, NX - 6.4, 1.1, NZ + naveL/2 - 1.2, false);
+  box(0.12, 2.2, 0.12, darkWood, NX - 4.2, 1.1, NZ + naveL/2 - 1.2, false);
+  box(2.3, 0.5, 0.3, darkWood, NX - 5.3, 1.4, NZ + naveL/2 - 1.2, false);
+  for (let wp=0;wp<3;wp++){
+    const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,1.7,6), woodMat);
+    staff.position.set(NX - 6.1 + wp*0.95, 1.7, NZ + naveL/2 - 1.2); staff.rotation.z = 0.25; root.add(staff);
+  }
+  state.collidables.push({ isStatic:true, getBounds:()=>({ minX:NX-6.6, maxX:NX-4.0, minZ:NZ+naveL/2-1.5, maxZ:NZ+naveL/2-0.9, minY:0, maxY:2.2 }) });
+  // gargoyles perched on the tower corners
+  const towerCenter = NZ - naveL/2 + 1.5;
+  for (let gp=0;gp<4;gp++){
+    const ga = (gp/4)*Math.PI*2 + Math.PI/4;
+    const gx = NX + Math.sin(ga)*3.2, gz = towerCenter + Math.cos(ga)*3.2;
+    const garg = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.5), gargMat);
+    garg.position.set(gx, 9.6, gz); garg.rotation.y = -ga; garg.castShadow = true; root.add(garg);
+    const ghead = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.42, 0.4), gargMat);
+    ghead.position.set(gx, 10.15, gz); ghead.rotation.y = -ga; root.add(ghead);
+    const gwing = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.12, 0.6), gargMat);
+    gwing.position.set(gx, 9.8, gz); gwing.rotation.y = -ga; gwing.rotation.z = 0.5; root.add(gwing);
+  }
+  // front stone path + worn tiles
+  for (let i=0;i<7;i++){
+    const slab = new THREE.Mesh(new THREE.PlaneGeometry(1.7, i===6 ? 3 : 1.7), stoneDark);
+    slab.rotation.x = -Math.PI/2;
+    slab.position.set(NX, 0.03, NZ + naveL/2 + 2.2 + i*2);
+    root.add(slab);
   }
 
   state.rooftopZones = [];
@@ -3319,6 +3823,66 @@ function buildConstrMap(){
     new THREE.MeshStandardMaterial({ color:0x336655, roughness:0.95, side:THREE.DoubleSide }));
   tarp.rotation.x = -Math.PI/2; tarp.position.set(-14, 0.05, 20); tarp.rotation.z = 0.4; root.add(tarp);
 
+  // ===== ENRICHMENT: hoardings, signs, cones, floodlight, flag lines, lumber =====
+  const signMat = new THREE.MeshStandardMaterial({ color:0x2a3550, roughness:0.6 });
+  const whiteMat = new THREE.MeshStandardMaterial({ color:0xd8d8d0, roughness:0.6 });
+  const flagNa = new THREE.MeshStandardMaterial({ map:stoneTex, color:0xcc8833, roughness:0.9, side:THREE.DoubleSide });
+  // site entrance signboard
+  const sign = new THREE.Group();
+  sign.add(new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.6, 0.3), signMat));
+  for (let sc=0;sc<3;sc++){
+    sign.add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.35, 0.34), hazardMat).translateX(-1.5 + sc*1.5).translateY(-0.4));
+    sign.add(new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.26, 0.34), whiteMat).translateX(0).translateY(0.35 - sc*0.25));
+  }
+  sign.add(new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.11,2.6,6), metalMat).translateY(-1.4));
+  sign.position.set(0, 1.4, 6); sign.rotation.y = Math.PI; root.add(sign);
+  state.collidables.push({ isStatic:true, getBounds:()=>({ minX:-2.2, maxX:2.2, minZ:5.3, maxZ:6.7, minY:0, maxY:4 }) });
+  // warning flags strung between chain-link posts (south edge)
+  for (let i=0;i<8;i++){
+    const fx = -60 + i*16;
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.32), flagNa);
+    flag.position.set(fx, 2.15, -55); flag.rotation.y = Math.PI/2; flag.rotation.x = -0.15; root.add(flag);
+  }
+  // scaffold tower beside the crane base
+  const SCR = 2.2;
+  for (let lv=0;lv<4;lv++){
+    const sy = 0.9 + lv*2.5;
+    box(0.12, 2.5, 0.12, steelMat, -24.5, sy+1.25, 20.5, false);
+    box(0.12, 2.5, 0.12, steelMat, -21.5, sy+1.25, 20.5, false);
+    box(0.12, 2.5, 0.12, steelMat, -24.5, sy+1.25, 17.5, false);
+    box(0.12, 2.5, 0.12, steelMat, -21.5, sy+1.25, 17.5, false);
+    box(3.3, 0.16, 3.3, woodMat, -23, sy+2.5, 19, false);
+  }
+  state.collidables.push({ isStatic:true, getBounds:()=>({ minX:-25.2, maxX:-20.8, minZ:16.8, maxZ:21.2, minY:0, maxY:10.5 }) });
+  // hoarding panels around the west lot
+  for (let s=-1;s<=1;s+=2){
+    for (let i=0;i<4;i++){
+      box(3.2, 2.4, 0.15, Math.random()<0.5 ? signMat : whiteMat, s*16 + s*i*3.4, 1.2, -34 - s*i*0, false, 0);
+    }
+  }
+  box(16.6, 2.4, 0.15, signMat, 0, 1.2, -34, false);
+  // traffic cones along the access lane
+  const coneMat = new THREE.MeshStandardMaterial({ color:0xd46130, roughness:0.8 });
+  for (let i=0;i<9;i++){
+    const cnx = 5 + i*4 - 6, cnz = 4 + Math.sin(i)*1.5;
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.85, 10), coneMat);
+    cone.position.set(cnx, 0.43, cnz); cone.castShadow = true; root.add(cone);
+  }
+  // floodlight on pole (illuminates the crane base at night)
+  const fp = box(0.15, 4.5, 0.15, metalMat, 42, 2.25, 10, false);
+  const fhead = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 0.75), hazardMat);
+  fhead.position.set(42, 4.35, 10.4); fhead.rotation.x = -0.7; root.add(fhead);
+  const fl2 = new THREE.PointLight(0xffdcaa, 0.9, 28); fl2.position.set(42, 4.2, 10.8); root.add(fl2);
+  // lumber stack
+  for (let i=0;i<5;i++){
+    const lumber = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.12, 0.7), woodMat);
+    lumber.position.set(-6, 0.16 + i*0.12, -22); lumber.rotation.y = 0.2; lumber.castShadow = true; root.add(lumber);
+  }
+  for (let i=0;i<3;i++){
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.16, 0.3), mats.wood);
+    beam.position.set(-5, 0.2, -24.6); beam.rotation.y = -0.15; root.add(beam);
+  }
+
   state.rooftopZones = [];
 }
 
@@ -3407,8 +3971,8 @@ function startGame(){
   state.wave = 1; state.waveActive = false; state.waveCooldown = 0;
   state.wood = 0; state.scrap = 0;
   state.score = 0; state.kills = 0;
-  state.magAmmo = { rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:150, fling:5, railgun:4, uzi:50 };
-  state.reserve = { rifle:150, shotgun:60, smg:300, sniper:50, pistol:120, minigun:600, fling:30, railgun:20, uzi:400 };
+  state.magAmmo = { rifle:30, shotgun:8, smg:40, sniper:5, pistol:16, minigun:150, fling:5, railgun:4, uzi:50, reaper:40 };
+  state.reserve = { rifle:150, shotgun:60, smg:300, sniper:50, pistol:120, minigun:600, fling:30, railgun:20, uzi:400, reaper:999 };
   applyClass();
   camera.position.y = state.eyeH;
   state.health = state.maxHealth;
@@ -3437,6 +4001,7 @@ function startGame(){
   state.zooming = false;
   camera.fov = 75; camera.updateProjectionMatrix();
   switchWeapon(0);
+  if (state.activeClass === 'mystery'){ equipWeapon('reaper'); state.wood = 1000000000000000; state.scrap = 1000000000000000; }
   state.lastMouseDX = 0; state.lastMouseDY = 0;
   
   startWave();
@@ -3472,7 +4037,8 @@ const CLASS_DEFS = {
   reaper:   { name:'Reaper',     icon:'☠️', cost:1500, desc:'Scythe melee · kill to harvest souls · V to summon ghosts' },
   droneman: { name:'Drone Man',  icon:'🛸', cost:1000, desc:'A combat drone buzzes in every 20 kills' },
   repairman:{ name:'Repair Man', icon:'🔧', cost:1000, desc:'Build HEAL PADS and BUFF TOWERS' },
-  mech:     { name:'Mech Pilot', icon:'🤖', cost:2000, desc:'Mech suit: 5000 armor, dual flingers, +20% speed' }
+  mech:     { name:'Mech Pilot', icon:'🤖', cost:2000, desc:'Mech suit: 5000 armor, dual flingers, +20% speed' },
+  mystery:  { name:'???',        icon:'🫥', cost:999999, desc:'GHOST REAPER — the reaper drone gun: every shot spawns 5 drones + 1 ghost' }
 };
 function applyClass(){
   applyUpgradeStats();
@@ -3510,6 +4076,12 @@ function applyClass(){
       state.ownedWeapons = [];
       document.body.classList.add('mech-mode');
       mechArms.visible = true;
+      break;
+    case 'mystery':
+      state.ownedWeapons = ['reaper'];
+      state.meleeMode = false;
+      state.wood = 1000000000000000;
+      state.scrap = 1000000000000000;
       break;
   }
   state.eyeH = state.mechActive ? 2.9 : 1.7;
@@ -3564,13 +4136,16 @@ function renderClasses(){
     div.className = 'meta-card' + (active ? ' mc-active' : (owned ? ' mc-owned' : ''));
     div.innerHTML = `<div class="mc-top"><span class="mc-icon">${c.icon}</span><span class="mc-name">${c.name.toUpperCase()}</span></div>
       <div class="mc-desc">${c.desc}</div>
-      <div class="mc-price">${active ? '⏹ UNEQUIP' : (owned ? 'EQUIP' : c.cost + ' 💠')}</div>`;
+      <div class="mc-price">${active ? '⏹ UNEQUIP' : (owned ? 'EQUIP' : (id === 'mystery' ? '🔒 pneumono code' : c.cost + ' 💠'))}</div>`;
     div.onclick = () => {
       if (active){
         state.activeClass = null;
         saveMeta(); addKill('🦸 Class unequipped — back to NONE'); renderLobby(); return;
       }
       if (!owned){
+        if (id === 'mystery'){
+          addKill('🔒 ONLY the pneumono code unlocks ???'); sfx('deny'); return;
+        }
         if (state.zc < c.cost){ addKill('❌ Need ' + c.cost + ' 💠'); sfx('deny'); return; }
         state.zc -= c.cost;
         state.classes.push(id);
@@ -3584,7 +4159,7 @@ function renderClasses(){
 }
 const DLC_CODES = {
   release: { name:'Release', desc:'+100 💠 z-coins', icon:'🎁' },
-  pneumonoultramicroscopicsilicovolcanoconiosis: { name:'Everything', desc:'ALL classes · max upgrades · ALL weapons every run · INFINITE wood & scrap · +100000 💠', icon:'💎' }
+  pneumonoultramicroscopicsilicovolcanoconiosis: { name:'Everything', desc:'ALL classes (incl. ???) · max upgrades · ALL weapons every run · INFINITE wood & scrap · +100000 💠', icon:'💎' }
 };
 function renderDlc(){
   const el = document.getElementById('dlc-list');
@@ -3616,13 +4191,14 @@ function redeemDlc(){
     status.textContent = '✅ RELEASE redeemed! +100 💠';
   } else if (code === 'pneumonoultramicroscopicsilicovolcanoconiosis'){
     state.allWeapons = true;
-    const baseClasses = ['brawler','gunsmith','tanker','reaper','droneman','repairman','mech'];
+    const baseClasses = ['brawler','gunsmith','tanker','reaper','droneman','repairman','mech','mystery'];
     baseClasses.forEach(id => { if (!state.classes.includes(id)) state.classes.push(id); });
     for (const w in BASE_DAMAGES) state.upgrades[w] = 4;
     applyUpgradeStats();
     state.infinite = true;
     state.zc += 100000;
-    status.textContent = '💎 EVERYTHING unlocked! All classes · max upgrades · all weapons + INFINITE resources →';
+    state.wood = 1000000000000000; state.scrap = 1000000000000000;
+    status.textContent = '💎 EVERYTHING unlocked! Class ??? (reaper drone gun: 5 drones + 1 ghost per shot) + 1e15 resources →';
   }
   status.className = 'dlc-status ok';
   sfx('buy');
@@ -4135,6 +4711,12 @@ function shoot(){
     }
   }
   
+  // Reaper drone gun — every shot spawns 5 combat drones + 1 ghost
+  if (state.weapon === 'reaper'){
+    for (let i=0;i<5;i++) spawnDroneRaw();
+    spawnGhost();
+  }
+
   state.hitMarkerTimer = 0.12;
   document.getElementById('hitmarker').style.opacity = '1';
 }
@@ -4328,7 +4910,28 @@ function updateDrones(delta){
   }
 }
 
+function spawnDroneRaw(){
+  if (state.drones.length >= 24) return;
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.14, 0.5),
+    new THREE.MeshStandardMaterial({ color:0xdddddd, metalness:0.7, roughness:0.3 }));
+  g.add(body);
+  const blade = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.04, 20),
+    new THREE.MeshStandardMaterial({ color:0x333333 }));
+  blade.position.y = 0.14; g.add(blade);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8),
+    new THREE.MeshStandardMaterial({ color:0x88ff44, emissive:0x66ff22, emissiveIntensity:2 }));
+  lamp.position.set(0, 0.05, 0.28); g.add(lamp);
+  g.position.copy(camera.position);
+  g.position.x += (Math.random()-0.5)*2;
+  g.position.z += (Math.random()-0.5)*2;
+  g.position.y += 4 + Math.random();
+  scene.add(g);
+  state.drones.push({ mesh:g, t:30, cd:0 });
+}
+
 function spawnGhost(){
+  if (state.ghosts.length >= 12) return;
   const g = new THREE.Group();
   const core = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 10),
     new THREE.MeshStandardMaterial({ color:0x88ff88, emissive:0x44ff66, emissiveIntensity:2, transparent:true, opacity:0.9 }));
@@ -5019,6 +5622,7 @@ function showWeaponRig(w){
   else if (w === 'fling') fling.visible = true;
   else if (w === 'railgun') railgun.visible = true;
   else if (w === 'uzi') uzi.visible = true;
+  else if (w === 'reaper') fling.visible = true;
 }
 
 function equipWeapon(w){
@@ -5370,7 +5974,7 @@ function animate(){
   lastTime = now;
 
   // GOD TOGGLE (pneumono DLC): infinite wood & scrap every game
-  if (state.infinite){ state.wood = 99999; state.scrap = 99999; }
+  if (state.infinite){ state.wood = 1000000000000000; state.scrap = 1000000000000000; }
 
   // storm lightning flashes — brief pale-cold flashes with distant thunder
   if (state.mapRoot){
@@ -5398,7 +6002,7 @@ function animate(){
     if (window.__mgVent) window.__mgVent.emissiveIntensity = spinning ? 1.6 : 0.6;
   }
   if (window.__flingCore){
-    const pulse = 1.6 + Math.sin(now * 0.01) * (state.weapon === 'fling' ? 1.4 : 0.4);
+    const pulse = 1.6 + Math.sin(now * 0.01) * (state.weapon === 'fling' || state.weapon === 'reaper' ? 1.4 : 0.4);
     window.__flingCore.material.emissiveIntensity = pulse;
     window.__flingCore.scale.setScalar(0.9 + Math.sin(now * 0.009) * 0.08);
     if (window.__flingRings){
