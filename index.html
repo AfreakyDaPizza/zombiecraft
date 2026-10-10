@@ -445,11 +445,11 @@ document.body.appendChild(renderer.domElement);
 
 // ============ SCENE ============
 const scene = new THREE.Scene();
-const _bgBase = new THREE.Color(0x160a16);
-const _fogBase = new THREE.Color(0x110812);
+const _bgBase = new THREE.Color(0x1a2038);
+const _fogBase = new THREE.Color(0x161c30);
 const _ltCol = new THREE.Color();
 scene.background = _bgBase.clone();
-scene.fog = new THREE.Fog(_fogBase.clone(), 30, 118);
+scene.fog = new THREE.Fog(_fogBase.clone(), 55, 175);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 500);
 camera.position.set(0, 1.7, 10);
@@ -472,9 +472,9 @@ fitGameWindow();
 window.addEventListener('resize', fitGameWindow);
 
 // LIGHTS
-scene.add(new THREE.AmbientLight(0xffffff, 0.22));
-scene.add(new THREE.HemisphereLight(0x1a1430, 0x0a060e, 0.3));
-const sun = new THREE.DirectionalLight(0xff5533, 0.65);
+scene.add(new THREE.AmbientLight(0xfff0e0, 0.5));
+scene.add(new THREE.HemisphereLight(0x5a7bb0, 0x14121c, 0.75));
+const sun = new THREE.DirectionalLight(0xffc9a0, 1.15);
 sun.position.set(30, 50, 20);
 sun.castShadow = true;
 sun.shadow.mapSize.width = 1024;
@@ -485,6 +485,51 @@ sun.shadow.camera.top=SR; sun.shadow.camera.bottom=-SR;
 sun.shadow.camera.near=1; sun.shadow.camera.far=150;
 sun.shadow.bias = -0.0005;
 scene.add(sun);
+const moon = new THREE.DirectionalLight(0x8fa7ff, 0.5);
+moon.position.set(-40, 60, -35);
+scene.add(moon);
+
+// ============ NIGHT SKY: stars, moon disc, far tree-line ============
+const skyObj = new THREE.Group();
+(function(){
+  const starGeo = new THREE.BufferGeometry();
+  const N = 700, pos = new Float32Array(N*3), siz = new Float32Array(N);
+  for (let i=0;i<N;i++){
+    const a = Math.random()*Math.PI*2, p = (0.25 + Math.random()*0.72)*Math.PI;
+    const r = 420;
+    pos[i*3]   = Math.sin(p)*Math.cos(a)*r;
+    pos[i*3+1] = Math.cos(p)*r;
+    pos[i*3+2] = Math.sin(p)*Math.sin(a)*r;
+    siz[i] = 0.6 + Math.random()*1.4;
+  }
+  starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  starGeo.setAttribute('size', new THREE.BufferAttribute(siz, 1));
+  const starMat = new THREE.PointsMaterial({ color:0xffffff, size:2.2, transparent:true, opacity:0.85, sizeAttenuation:false, depthWrite:false });
+  const stars = new THREE.Points(starGeo, starMat);
+  scene.add(stars);
+  // moon disc + halo
+  const moonDir = new THREE.Vector3(-0.42, 0.5, -0.42).normalize();
+  const mpos = moonDir.clone().multiplyScalar(430);
+  const moonMesh = new THREE.Mesh(new THREE.CircleGeometry(26, 32),
+    new THREE.MeshBasicMaterial({ color:0xd8e2ff }));
+  moonMesh.position.copy(mpos); moonMesh.lookAt(0,0,0); scene.add(moonMesh);
+  const halo = new THREE.Mesh(new THREE.CircleGeometry(42, 32),
+    new THREE.MeshBasicMaterial({ color:0x9fb4ff, transparent:true, opacity:0.25, depthWrite:false }));
+  halo.position.copy(mpos); halo.lookAt(0,0,0); scene.add(halo);
+  // distant tree line (pure silhouette — fog will haze it)
+  const silMat = new THREE.MeshBasicMaterial({ color:0x0d1220 });
+  for (let i=0;i<110;i++){
+    const a = (i/110)*Math.PI*2 + (Math.random()-0.5)*0.3;
+    const r = 155 + Math.random()*40;
+    const h = 6 + Math.random()*16;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 1.2, h*0.5, 5), silMat);
+    trunk.position.set(Math.sin(a)*r, h*0.22, Math.cos(a)*r);
+    const crown = new THREE.Mesh(new THREE.ConeGeometry(4 + Math.random()*7, h*0.8, 6), silMat);
+    crown.position.set(Math.sin(a)*r, h*0.55, Math.cos(a)*r);
+    crown.rotation.y = Math.random()*Math.PI*2;
+    scene.add(trunk); scene.add(crown);
+  }
+})();
 
 // ============ TEXTURES ============
 function noiseTex(color, size=64, variation=25) {
@@ -3032,17 +3077,19 @@ function buildArenaMap(){
   const flameMat  = new THREE.MeshStandardMaterial({ color:0xff8833, emissive:0xff6622, emissiveIntensity:2.2 });
   const bannerMat = new THREE.MeshStandardMaterial({ color:0x8a2424, roughness:0.8, side:THREE.DoubleSide });
 
-  // Worn arena floor — dirt scuffs + blood stains + center ring
-  for (let i=0;i<40;i++){
-    const a = Math.random()*Math.PI*2, r = 10 + Math.random()*33;
-    const d = new THREE.Mesh(new THREE.PlaneGeometry(4+Math.random()*8, 4+Math.random()*8), dirtMat);
+  // Worn arena floor — soft scuffs + faint blood + center ring
+  const dustMat = new THREE.MeshStandardMaterial({ map:stoneTex, color:0x5e5648, transparent:true, opacity:0.35, roughness:1 });
+  for (let i=0;i<12;i++){
+    const a = Math.random()*Math.PI*2, r = 12 + Math.random()*30;
+    const d = new THREE.Mesh(new THREE.PlaneGeometry(7+Math.random()*10, 7+Math.random()*10), dustMat);
     d.rotation.x = -Math.PI/2; d.rotation.z = Math.random()*Math.PI;
-    d.position.set(Math.sin(a)*r + (Math.random()-0.5)*6, 0.02, Math.cos(a)*r + (Math.random()-0.5)*6);
+    d.position.set(Math.sin(a)*r, 0.02, Math.cos(a)*r);
     root.add(d);
   }
-  for (let i=0;i<18;i++){
-    const a = Math.random()*Math.PI*2, r = 8 + Math.random()*30;
-    const b = new THREE.Mesh(new THREE.PlaneGeometry(2+Math.random()*4, 2+Math.random()*4), bloodMat);
+  const bloodMat2 = new THREE.MeshStandardMaterial({ color:0x3a0e0c, transparent:true, opacity:0.3, roughness:1, depthWrite:false });
+  for (let i=0;i<6;i++){
+    const a = Math.random()*Math.PI*2, r = 10 + Math.random()*26;
+    const b = new THREE.Mesh(new THREE.PlaneGeometry(2.6+Math.random()*3, 2.6+Math.random()*3), bloodMat2);
     b.rotation.x = -Math.PI/2; b.rotation.z = Math.random()*Math.PI;
     b.position.set(Math.sin(a)*r, 0.03, Math.cos(a)*r);
     root.add(b);
@@ -3202,22 +3249,22 @@ function buildRuinsMap(){
   const vineMat   = new THREE.MeshStandardMaterial({ color:0x2f5520, roughness:1 });
   const boneMat   = new THREE.MeshStandardMaterial({ color:0xd8d0c0, roughness:0.6, flatShading:true });
 
-  // Overgrown meadow — dirt clumps, tufts, ferns
-  for (let i=0;i<60;i++){
-    const a = Math.random()*Math.PI*2, r = 6 + Math.random()*90;
-    const d = new THREE.Mesh(new THREE.PlaneGeometry(3+Math.random()*7, 3+Math.random()*7), dirtMat);
+  // Overgrown meadow — soft dirt clumps, scattered ferns
+  for (let i=0;i<24;i++){
+    const a = Math.random()*Math.PI*2, r = 8 + Math.random()*88;
+    const d = new THREE.Mesh(new THREE.PlaneGeometry(4+Math.random()*7, 4+Math.random()*7), dirtMat);
     d.rotation.x = -Math.PI/2; d.rotation.z = Math.random()*Math.PI;
     d.position.set(Math.sin(a)*r + (Math.random()-0.5)*4, 0.02, Math.cos(a)*r + (Math.random()-0.5)*4);
     root.add(d);
   }
   const fernMat = new THREE.MeshStandardMaterial({ color:0x2f5a22, roughness:1, transparent:true, opacity:0.9, side:THREE.DoubleSide });
-  for (let i=0;i<80;i++){
-    const a = Math.random()*Math.PI*2, r = 4 + Math.random()*95;
+  for (let i=0;i<28;i++){
+    const a = Math.random()*Math.PI*2, r = 6 + Math.random()*92;
     const fx = Math.sin(a)*r, fz = Math.cos(a)*r;
     const tuft = new THREE.Group();
-    for (let b=0;b<4;b++){
-      const blade = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.5+Math.random()*0.6), fernMat);
-      blade.position.set((Math.random()-0.5)*0.3, 0.25, (Math.random()-0.5)*0.3);
+    for (let b=0;b<3;b++){
+      const blade = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.4+Math.random()*0.4), fernMat);
+      blade.position.set((Math.random()-0.5)*0.35, 0.2, (Math.random()-0.5)*0.35);
       blade.rotation.y = Math.random()*Math.PI; blade.rotation.x = (Math.random()-0.5)*0.2; tuft.add(blade);
     }
     tuft.position.set(fx, 0, fz); root.add(tuft);
